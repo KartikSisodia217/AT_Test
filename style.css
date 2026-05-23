@@ -32,7 +32,7 @@ body {
 
 .sidebar {
   width: 280px;
-  flex-shrink: 0; /* Ensures width transitions smoothly with flexbox */
+  flex-shrink: 0; 
   background-color: var(--bg-sec);
   border-right: 1px solid var(--border);
   display: flex;
@@ -376,7 +376,6 @@ body {
 .compact-att-controls { display: flex; gap: 4px; }
 .compact-att-btn { padding: 6px 12px; font-size: 11px; font-weight: bold; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-sec); color: var(--text-muted); cursor:pointer; transition: all 0.2s;}
 
-/* Mobile Overlay Styles */
 .mobile-overlay {
   position: fixed;
   top: 0;
@@ -396,7 +395,6 @@ body {
   visibility: visible;
 }
 
-/* Base styles for the new toggle button */
 .desktop-toggle-btn {
   background: var(--bg);
   border: 1px solid var(--border);
@@ -408,7 +406,7 @@ body {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  margin-left: auto; /* Pushes button to right end of brand */
+  margin-left: auto; 
   transition: all 0.2s, transform 0.3s;
 }
 
@@ -435,7 +433,7 @@ body {
   }
   .sidebar.active { transform: translateX(0); }
   .mobile-menu-btn, .mobile-close-btn { display: block; }
-  .desktop-toggle-btn { display: none; } /* Hide desktop button on mobile */
+  .desktop-toggle-btn { display: none; } 
   .desktop-nav-controls { display: none !important; } 
   .toolbar { margin-bottom: 0; padding-bottom: 10px; }
   .calendar-container { border: none; background: var(--bg); border-radius: 0; overflow-x: hidden; }
@@ -444,8 +442,12 @@ body {
 
 @media (min-width: 1001px) {
   .mobile-overlay { display: none !important; }
+
+  /* ✨ Hide install buttons on desktop screens ✨ */
+  .mobile-only-install {
+    display: none !important;
+  }
   
-  /* ✨ NEW: Desktop Collapsed Sidebar Logic ✨ */
   .sidebar {
     transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }

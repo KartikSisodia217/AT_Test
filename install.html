@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Install Attendance Tracker</title>
+
+  <!-- PWA Manifest & Theme -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f1117">
+
+  <!-- iOS & Mobile Support Meta Tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Attendance">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+
+  <style>
+    .install-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100dvh;
+      padding: 20px;
+      text-align: center;
+    }
+    .install-box {
+      background: var(--bg-sec);
+      border: 1px solid var(--border);
+      padding: 30px;
+      border-radius: 12px;
+      max-width: 400px;
+      width: 100%;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+    }
+    .install-step {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 15px;
+      text-align: left;
+    }
+    .install-step h3 {
+      color: var(--accent);
+      font-size: 14px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .install-step p {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .back-link {
+      margin-top: 20px;
+      display: inline-block;
+      color: var(--text-muted);
+      font-size: 13px;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .back-link:hover {
+      color: var(--text);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="install-container">
+    <div class="install-box">
+      <img src="assets/logo.png" alt="Logo" class="login-logo" style="width: 64px; border-radius: 12px; margin-bottom: 15px;" onerror="this.style.display='none'">
+      <h1 class="login-title" style="font-size: 20px;">Install App</h1>
+      <p class="login-tagline" style="margin-bottom: 20px;">Get the native app experience on your phone.</p>
+
+      <!-- Always visible for iOS -->
+      <div class="install-step" id="ios-install-section">
+        <h3>For iPhone (Safari)</h3>
+        <p>1. Tap the <strong>Share</strong> icon at the bottom.<br>
+           2. Scroll down and tap <strong>"Add to Home Screen"</strong>.<br>
+           3. Tap <strong>Add</strong> in the top right.</p>
+      </div>
+
+      <!-- Hidden by default, activated via JS on Android -->
+      <div class="install-step" id="android-install-section" style="display: none;">
+        <h3>For Android</h3>
+        <p style="margin-bottom: 12px;">Install the app directly to your home screen for quick access.</p>
+        <button id="install-btn" class="btn">Install App</button>
+      </div>
+
+      <a href="index.html" class="back-link">← Back to App</a>
+    </div>
+  </div>
+
+  <script>
+    let deferredPrompt;
+    const androidSection = document.getElementById('android-install-section');
+    const installBtn = document.getElementById('install-btn');
+
+    // This event fires on Chrome/Android when the PWA is installable
+    window.addEventListener('beforeinstallprompt', (e) => {
+      // Prevent the default mini-infobar
+      e.preventDefault();
+      // Stash the event so it can be triggered later
+      deferredPrompt = e;
+      // Show our custom install button UI
+      androidSection.style.display = 'block';
+    });
+
+    // Handle the button click
+    installBtn.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        // Show the native install prompt
+        deferredPrompt.prompt();
+        // Wait for the user to respond
+        const { outcome } = await deferredPrompt.userChoice;
+        
+        if (outcome === 'accepted') {
+          // If they installed it, hide our button
+          androidSection.style.display = 'none';
+        }
+        
+        // We can only use the prompt once, clear it
+        deferredPrompt = null;
+      }
+    });
+
+    // Hide the button if the user successfully installs it
+    window.addEventListener('appinstalled', () => {
+      androidSection.style.display = 'none';
+      deferredPrompt = null;
+    });
+  </script>
+</body>
+</html>
