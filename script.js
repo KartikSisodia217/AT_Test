@@ -37,7 +37,6 @@ async function load_saved_application_data() {
   setTimeout(scroll_interface_to_current_time_slot, 100);
 }
 
-// ✨ FIXED: extra_classes overwrite bug is resolved ✨
 function save_current_application_data() {
   if (!current_logged_in_user) return;
   
@@ -180,6 +179,7 @@ function render_attendance_statistics_cards() {
       }
     }
 
+    /* ✨ ADDED Classes: .subject-name-text and .target-text-output to allow clean hiding when sidebar collapses ✨ */
     statistics_list_container.innerHTML += `
       <div class="stat-card" style="border-left: 4px solid ${current_subject_data.subject_color_hex || 'var(--accent)'}">
         <div class="subject-header" style="align-items: flex-start;">
@@ -382,6 +382,8 @@ function render_mobile_day_view(mobile_container) {
       <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
         <div style="display: flex; align-items: center; gap: 4px;">
           <h3 style="font-size: 15px; font-weight: 600; color: var(--text); display:flex; align-items:center;">${formatted_display_date} ${today_indicator_html}</h3>
+          
+          
         </div>
         ${!is_today ? `<button class="nav-btn" style="padding: 4px 10px; font-size: 11px;" onclick="navigate_mobile_to_today()">Today</button>` : ''}
       </div>
@@ -458,6 +460,8 @@ function render_mobile_week_view(mobile_container) {
       <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
         <div style="display: flex; align-items: center; gap: 4px;">
           <h3 style="font-size: 14px; font-weight: 600; color: var(--text);">Week of ${week_start_label}</h3>
+          
+          
         </div>
         ${!is_current_week ? `<button class="nav-btn" style="padding: 4px 10px; font-size: 11px;" onclick="navigate_mobile_to_today()">Current Week</button>` : ''}
       </div>
@@ -559,6 +563,7 @@ window.handle_empty_cell_click = function(day_name, hour_value) {
   document.getElementById('slot_duration_selection').value = "1";
   open_interface_modal('weekly_slot_modal');
 };
+
 
 window.open_add_subject_modal = function () {
   currently_editing_subject_identifier = null;
@@ -790,60 +795,54 @@ onAuthStateChanged(auth_service_instance, async (user) => {
 
 window.addEventListener('resize', render_entire_application_interface);
 
-// ✨ PWA Service Worker Registration ✨
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js')
-      .then(registration => {
-        console.log('ServiceWorker registration successful with scope: ', registration.scope);
-      })
-      .catch(err => {
-        console.log('ServiceWorker registration failed: ', err);
-      });
-  });
-}
-
+// ---------------- PWA INSTALL FLOW ----------------
 
 let deferredPrompt = null;
 
-// Catch the Android installation prompt so we can trigger it manually
+const installButton = document.getElementById('install_app_btn');
+const iosInstallText = document.getElementById('ios_install_text');
+
+const isMobile = /android|iphone|ipad|ipod/i.test(window.navigator.userAgent);
+const isIOS = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+
+const isInStandaloneMode =
+  window.matchMedia('(display-mode: standalone)').matches ||
+  window.navigator.standalone === true;
+
+// Show iPhone instructions only on iOS mobile browsers
+if (isMobile && isIOS && !isInStandaloneMode) {
+  iosInstallText.style.display = 'block';
+}
+
+// Android/Chrome install prompt
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
+
   deferredPrompt = e;
+
+  // Show install button only on Android/mobile
+  if (isMobile && !isIOS && !isInStandaloneMode) {
+    installButton.style.display = 'flex';
+  }
 });
 
-window.handle_install_click = async function() {
-  if (deferredPrompt) {
-    // Android/Chrome: Show the native install prompt directly
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    
-    if (outcome === 'accepted') {
-      deferredPrompt = null;
-    }
-  } else {
-    // iOS/Unsupported: Fallback to instructions page
-    window.location.href = 'install.html';
+// Handle install button click
+installButton.addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+
+  deferredPrompt.prompt();
+
+  const { outcome } = await deferredPrompt.userChoice;
+
+  if (outcome === 'accepted') {
+    installButton.style.display = 'none';
   }
-};
 
-if ('serviceWorker' in navigator) {
+  deferredPrompt = null;
+});
 
-  window.addEventListener('load', () => {
-
-    navigator.serviceWorker
-      .register('/service-worker.js')
-
-      .then((registration) => {
-        console.log('Service Worker registered:', registration);
-
-        alert('SW REGISTERED');
-      })
-
-      .catch((error) => {
-        console.error('SW registration failed:', error);
-
-        alert(error);
-      });
-  });
-}
+// Hide button after successful install
+window.addEventListener('appinstalled', () => {
+  installButton.style.display = 'none';
+  deferredPrompt = null;
+});
