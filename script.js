@@ -811,18 +811,12 @@ if ('serviceWorker' in navigator) {
 
 // ---------------- PWA INSTALL FLOW ----------------
 
+let deferredPrompt = null;
 
+const installButton = document.getElementById('install_app_btn');
+const iosInstallText = document.getElementById('ios_install_text');
 
-  let deferredPrompt = null;
-
-  const installButton = document.getElementById('install_app_btn');
-  const iosInstallText = document.getElementById('ios_install_text');
-
-  // Safety check
-  if (!installButton || !iosInstallText) {
-    console.error('Install elements not found');
-    return;
-  }
+if (installButton && iosInstallText) {
 
   const isMobile = /android|iphone|ipad|ipod/i.test(window.navigator.userAgent);
   const isIOS = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
@@ -831,41 +825,51 @@ if ('serviceWorker' in navigator) {
     window.matchMedia('(display-mode: standalone)').matches ||
     window.navigator.standalone === true;
 
-  // Show iPhone instructions
+  // Hide by default
+  installButton.style.display = 'none';
+  iosInstallText.style.display = 'none';
+
+  // iPhone instructions
   if (isMobile && isIOS && !isInStandaloneMode) {
     iosInstallText.style.display = 'block';
   }
 
-  // Android install prompt
-  window.addEventListener('beforeinstallprompt', (e) => {
+  // Android install flow
+  if (isMobile && !isIOS && !isInStandaloneMode) {
 
-    e.preventDefault();
+    installButton.style.display = 'flex';
 
-    deferredPrompt = e;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+    });
 
-    if (isMobile && !isIOS && !isInStandaloneMode) {
-      installButton.style.display = 'flex';
-    }
-  });
+    installButton.addEventListener('click', async () => {
 
-  // Install button click
-  installButton.addEventListener('click', async () => {
+      if (!deferredPrompt) {
 
-    if (!deferredPrompt) return;
+        alert(
+          'If install popup does not appear:\n\nChrome Menu (⋮) → Add to Home Screen'
+        );
 
-    deferredPrompt.prompt();
+        return;
+      }
 
-    const { outcome } = await deferredPrompt.userChoice;
+      deferredPrompt.prompt();
 
-    if (outcome === 'accepted') {
-      installButton.style.display = 'none';
-    }
+      const { outcome } = await deferredPrompt.userChoice;
 
-    deferredPrompt = null;
-  });
+      if (outcome === 'accepted') {
+        installButton.style.display = 'none';
+      }
 
-  // Hide after successful install
+      deferredPrompt = null;
+    });
+  }
+
+  // Hide after install
   window.addEventListener('appinstalled', () => {
     installButton.style.display = 'none';
     deferredPrompt = null;
   });
+}
