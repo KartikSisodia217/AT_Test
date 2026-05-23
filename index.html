@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,6 +9,7 @@
   <link rel="stylesheet" href="style.css">
   <link rel="icon" type="image/png" href="assets/logo.png">
 </head>
+
 <body>
 
   <div id="auth_loading_overlay" class="auth-loading-overlay">
@@ -24,19 +26,48 @@
         <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G" class="google-icon">
         Continue with Google
       </button>
+      <button id="install_help_btn" class="install-help-btn">
+        How to Install App
+      </button>
+      <div id="install_help_modal" class="install-help-modal">
+        <div class="install-help-box">
+          <button class="install-close-btn" onclick="close_install_help()">✖</button>
+
+          <h3>Install Attendance Tracker</h3>
+
+          <div class="install-section">
+            <strong>Android (Chrome/Brave/Opera)</strong>
+            <p>
+              Open browser menu (⋮) →<br>
+              Add to Home Screen / Install App
+            </p>
+          </div>
+
+          <div class="install-section">
+            <strong>iPhone (Safari)</strong>
+            <p>
+              Share button →<br>
+              Add to Home Screen
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
   <div id="main_app" class="app-container hidden">
-    
+
     <div id="mobile_sidebar_overlay" class="mobile-overlay" onclick="toggle_mobile_sidebar()"></div>
 
     <aside class="sidebar">
       <div class="brand">
         <span class="brand-text">Attendance Tracker</span>
-        <!-- ✨ NEW: Desktop Collapse Toggle Button ✨ -->
+        
         <button class="desktop-toggle-btn" onclick="toggle_desktop_sidebar()" title="Toggle Sidebar">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
         </button>
         <button class="mobile-close-btn" onclick="toggle_mobile_sidebar()">✖</button>
       </div>
@@ -45,7 +76,6 @@
         <div class="user-welcome" id="user_welcome_text">Welcome</div>
       </div>
 
-      <!-- ✨ Wrapped text for clean collapsing ✨ -->
       <button class="btn" onclick="open_add_subject_modal()">
         <span>+</span> <span class="btn-text">Add Subject</span>
       </button>
@@ -53,9 +83,14 @@
       <div class="section-title">Attendance Overview</div>
       <div class="stats-list" id="stats_list_container"></div>
 
-      <!-- ✨ Added SVG icon and wrapped text for clean collapsing ✨ -->
+      
       <button class="user-logout-btn" onclick="handle_auth_click()" title="Logout">
-        <svg class="logout-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+        <svg class="logout-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+          <polyline points="16 17 21 12 16 7"></polyline>
+          <line x1="21" y1="12" x2="9" y2="12"></line>
+        </svg>
         <span class="btn-text">Logout</span>
       </button>
     </aside>
@@ -88,11 +123,18 @@
     <div class="modal-box">
       <div class="modal-title" id="subject_modal_title_text">Add Subject</div>
       <form id="subject_input_form">
-        <div class="form-group"><label>Subject Name</label><input type="text" id="subject_name_input" required placeholder="e.g. Mathematics"></div>
-        <div class="form-group"><label>Subject Code</label><input type="text" id="subject_code_input" required placeholder="e.g. MA101"></div>
-        <div class="form-group"><label>Target Attendance %</label><input type="number" id="subject_target_input" min="1" max="100" required value="75"></div>
-        <div class="form-group"><label>Subject Color</label><div class="color-picker" id="color_selection_container"></div><input type="hidden" id="subject_color_input" required></div>
-        <div class="modal-actions"><button type="button" class="btn btn-secondary" onclick="close_all_interface_modals()">Cancel</button><button type="submit" class="btn">Save</button></div>
+        <div class="form-group"><label>Subject Name</label><input type="text" id="subject_name_input" required
+            placeholder="e.g. Mathematics"></div>
+        <div class="form-group"><label>Subject Code</label><input type="text" id="subject_code_input" required
+            placeholder="e.g. MA101"></div>
+        <div class="form-group"><label>Target Attendance %</label><input type="number" id="subject_target_input" min="1"
+            max="100" required value="75"></div>
+        <div class="form-group"><label>Subject Color</label>
+          <div class="color-picker" id="color_selection_container"></div><input type="hidden" id="subject_color_input"
+            required>
+        </div>
+        <div class="modal-actions"><button type="button" class="btn btn-secondary"
+            onclick="close_all_interface_modals()">Cancel</button><button type="submit" class="btn">Save</button></div>
       </form>
     </div>
   </div>
@@ -105,17 +147,34 @@
         <div class="form-group">
           <label>Day</label>
           <select id="slot_day_selection" required>
-            <option value="Monday">Monday</option><option value="Tuesday">Tuesday</option><option value="Wednesday">Wednesday</option><option value="Thursday">Thursday</option><option value="Friday">Friday</option>
+            <option value="Monday">Monday</option>
+            <option value="Tuesday">Tuesday</option>
+            <option value="Wednesday">Wednesday</option>
+            <option value="Thursday">Thursday</option>
+            <option value="Friday">Friday</option>
           </select>
         </div>
         <div class="form-group">
           <label>Start Time (24h)</label>
           <select id="slot_start_time_selection" required>
-            <option value="8">08:00</option><option value="9">09:00</option><option value="10">10:00</option><option value="11">11:00</option><option value="12">12:00</option><option value="13">13:00</option><option value="14">14:00</option><option value="15">15:00</option><option value="16">16:00</option><option value="17">17:00</option>
+            <option value="8">08:00</option>
+            <option value="9">09:00</option>
+            <option value="10">10:00</option>
+            <option value="11">11:00</option>
+            <option value="12">12:00</option>
+            <option value="13">13:00</option>
+            <option value="14">14:00</option>
+            <option value="15">15:00</option>
+            <option value="16">16:00</option>
+            <option value="17">17:00</option>
           </select>
         </div>
-        <div class="form-group"><label>Lecture Hours</label><select id="slot_duration_selection" required><option value="1">1 Hour</option><option value="2">2 Hours</option></select></div>
-        <div class="modal-actions"><button type="button" class="btn btn-secondary" onclick="close_all_interface_modals()">Cancel</button><button type="submit" class="btn">Save</button></div>
+        <div class="form-group"><label>Lecture Hours</label><select id="slot_duration_selection" required>
+            <option value="1">1 Hour</option>
+            <option value="2">2 Hours</option>
+          </select></div>
+        <div class="modal-actions"><button type="button" class="btn btn-secondary"
+            onclick="close_all_interface_modals()">Cancel</button><button type="submit" class="btn">Save</button></div>
       </form>
     </div>
   </div>
@@ -129,15 +188,29 @@
         <div class="form-group">
           <label>Start Time (24h)</label>
           <select id="extra_start_time_selection" required>
-            <option value="8">08:00</option><option value="9">09:00</option><option value="10">10:00</option><option value="11">11:00</option><option value="12">12:00</option><option value="13">13:00</option><option value="14">14:00</option><option value="15">15:00</option><option value="16">16:00</option><option value="17">17:00</option>
+            <option value="8">08:00</option>
+            <option value="9">09:00</option>
+            <option value="10">10:00</option>
+            <option value="11">11:00</option>
+            <option value="12">12:00</option>
+            <option value="13">13:00</option>
+            <option value="14">14:00</option>
+            <option value="15">15:00</option>
+            <option value="16">16:00</option>
+            <option value="17">17:00</option>
           </select>
         </div>
-        <div class="form-group"><label>Lecture Hours</label><select id="extra_duration_selection" required><option value="1">1 Hour</option><option value="2">2 Hours</option></select></div>
-        <div class="modal-actions"><button type="button" class="btn btn-secondary" onclick="close_all_interface_modals()">Cancel</button><button type="submit" class="btn">Save</button></div>
+        <div class="form-group"><label>Lecture Hours</label><select id="extra_duration_selection" required>
+            <option value="1">1 Hour</option>
+            <option value="2">2 Hours</option>
+          </select></div>
+        <div class="modal-actions"><button type="button" class="btn btn-secondary"
+            onclick="close_all_interface_modals()">Cancel</button><button type="submit" class="btn">Save</button></div>
       </form>
     </div>
   </div>
 
-  <script type="module" src="script.js"></script>   
+  <script type="module" src="script.js"></script>
 </body>
+
 </html>

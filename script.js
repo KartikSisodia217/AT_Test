@@ -20,7 +20,7 @@ const THEME_COLORS_ARRAY = ['#7c5cff', '#3498db', '#2ecc71', '#f1c40f', '#e67e22
 
 async function load_saved_application_data() {
   if (!current_logged_in_user) return;
-  
+
   const user_doc_ref = doc(firestore_database_instance, "users", current_logged_in_user.uid);
   const document_snapshot = await getDoc(user_doc_ref);
 
@@ -31,7 +31,7 @@ async function load_saved_application_data() {
     application_state.additional_extra_classes = cloud_data.additional_extra_classes || [];
     application_state.attendance_records = cloud_data.attendance_records || [];
   } else {
-    save_current_application_data(); 
+    save_current_application_data();
   }
   render_entire_application_interface();
   setTimeout(scroll_interface_to_current_time_slot, 100);
@@ -39,7 +39,7 @@ async function load_saved_application_data() {
 
 function save_current_application_data() {
   if (!current_logged_in_user) return;
-  
+
   const user_doc_ref = doc(firestore_database_instance, "users", current_logged_in_user.uid);
   setDoc(user_doc_ref, {
     enrolled_subjects: application_state.enrolled_subjects,
@@ -49,7 +49,7 @@ function save_current_application_data() {
   }, { merge: true });
 }
 
-window.handle_auth_click = async function() {
+window.handle_auth_click = async function () {
   const loading_overlay = document.getElementById('auth_loading_overlay');
   const loading_text = document.getElementById('auth_loading_text');
 
@@ -152,9 +152,9 @@ function render_attendance_statistics_cards() {
 
     const calculated_attendance_percentage = total_scheduled_hours_count === 0 ? 0 : ((total_present_hours_count / total_scheduled_hours_count) * 100).toFixed(1);
     let dynamic_target_text_output = '';
-    
-    if (total_scheduled_hours_count === 0) { 
-      dynamic_target_text_output = `<span style="color: var(--text-muted);">No classes yet</span>`; 
+
+    if (total_scheduled_hours_count === 0) {
+      dynamic_target_text_output = `<span style="color: var(--text-muted);">No classes yet</span>`;
     }
     else if (calculated_attendance_percentage >= target_val) {
       let skippable_lecture_hours_count = 0;
@@ -164,10 +164,10 @@ function render_attendance_statistics_cards() {
         skippable_lecture_hours_count = 999;
       }
 
-      if (skippable_lecture_hours_count > 0) { 
-        dynamic_target_text_output = `<span style="color: var(--present); font-weight: 600;">✔ Safe (Can skip ${skippable_lecture_hours_count} hrs)</span>`; 
-      } else { 
-        dynamic_target_text_output = `<span style="color: var(--present); font-weight: 600;">✔ Safe (Cannot skip any)</span>`; 
+      if (skippable_lecture_hours_count > 0) {
+        dynamic_target_text_output = `<span style="color: var(--present); font-weight: 600;">✔ Safe (Can skip ${skippable_lecture_hours_count} hrs)</span>`;
+      } else {
+        dynamic_target_text_output = `<span style="color: var(--present); font-weight: 600;">✔ Safe (Cannot skip any)</span>`;
       }
     } else {
       let required_lecture_hours_count = 0;
@@ -179,7 +179,7 @@ function render_attendance_statistics_cards() {
       }
     }
 
-    /* ✨ ADDED Classes: .subject-name-text and .target-text-output to allow clean hiding when sidebar collapses ✨ */
+    
     statistics_list_container.innerHTML += `
       <div class="stat-card" style="border-left: 4px solid ${current_subject_data.subject_color_hex || 'var(--accent)'}">
         <div class="subject-header" style="align-items: flex-start;">
@@ -247,7 +247,7 @@ function render_weekly_calendar_grid() {
       const corresponding_date_string = current_week_dates_array[day_iteration_index - 1];
       const is_current_day_boolean_cell = (corresponding_date_string === actual_current_date_string);
       const dynamic_cell_class_name = is_current_day_boolean_cell ? 'grid-cell today-cell' : 'grid-cell';
-      
+
       calendar_body_container_element.innerHTML += `<div class="${dynamic_cell_class_name}" style="grid-column: ${day_iteration_index + 1}; grid-row: ${hour_iteration_index - 7}" onclick="handle_empty_cell_click('${WEEK_DAYS_ARRAY[day_iteration_index - 1]}', ${hour_iteration_index})"></div>`;
     }
   }
@@ -319,27 +319,27 @@ function render_weekly_calendar_grid() {
   });
 }
 
-window.toggle_desktop_sidebar = function() {
+window.toggle_desktop_sidebar = function () {
   document.querySelector('.sidebar').classList.toggle('collapsed');
 };
 
-window.toggle_mobile_sidebar = function() { 
-  document.querySelector('.sidebar').classList.toggle('active'); 
+window.toggle_mobile_sidebar = function () {
+  document.querySelector('.sidebar').classList.toggle('active');
   const overlay = document.getElementById('mobile_sidebar_overlay');
   if (overlay) {
     overlay.classList.toggle('active');
   }
 };
 
-window.navigate_mobile_day = function(day_offset_integer_value) {
+window.navigate_mobile_day = function (day_offset_integer_value) {
   application_state.current_mobile_date_object.setDate(application_state.current_mobile_date_object.getDate() + day_offset_integer_value);
   render_entire_application_interface();
 };
-window.switch_mobile_view = function(mode) {
+window.switch_mobile_view = function (mode) {
   application_state.mobile_view_mode = mode;
   render_entire_application_interface();
 };
-window.navigate_mobile_to_today = function() {
+window.navigate_mobile_to_today = function () {
   application_state.current_mobile_date_object = new Date();
   application_state.start_of_current_week = calculate_monday_of_target_week(new Date());
   render_entire_application_interface();
@@ -349,7 +349,7 @@ function render_mobile_interface() {
   const container = document.querySelector('.calendar-container');
   document.getElementById('calendar_header_container').style.display = 'none';
   document.getElementById('calendar_body_container').style.display = 'none';
-  
+
   let mobile_container = document.getElementById('mobile_view_container');
   if (!mobile_container) {
     mobile_container = document.createElement('div');
@@ -358,7 +358,7 @@ function render_mobile_interface() {
   }
   mobile_container.style.display = 'block';
 
-  if (application_state.mobile_view_mode === 'day') { render_mobile_day_view(mobile_container); } 
+  if (application_state.mobile_view_mode === 'day') { render_mobile_day_view(mobile_container); }
   else { render_mobile_week_view(mobile_container); }
 }
 
@@ -553,7 +553,7 @@ window.select_subject_color_swatch = function (clicked_element, color_hex_code_v
   document.getElementById('subject_color_input').value = color_hex_code_value;
 };
 
-window.handle_empty_cell_click = function(day_name, hour_value) {
+window.handle_empty_cell_click = function (day_name, hour_value) {
   if (application_state.enrolled_subjects.length === 0) {
     alert("Please add a subject first!");
     return;
@@ -569,9 +569,9 @@ window.open_add_subject_modal = function () {
   currently_editing_subject_identifier = null;
   document.getElementById('subject_modal_title_text').innerText = 'Add Subject';
   document.getElementById('subject_input_form').reset();
-  
+
   const target_input = document.getElementById('subject_target_input');
-  if(target_input) target_input.value = 75;
+  if (target_input) target_input.value = 75;
 
   initialize_color_selection_palette(THEME_COLORS_ARRAY[0]);
   open_interface_modal('subject_creation_modal');
@@ -583,9 +583,9 @@ window.open_edit_subject_modal = function (target_subject_identifier) {
   document.getElementById('subject_modal_title_text').innerText = 'Edit Subject';
   document.getElementById('subject_name_input').value = retrieved_subject_data.subject_name_text;
   document.getElementById('subject_code_input').value = retrieved_subject_data.subject_code_text;
-  
+
   const target_input = document.getElementById('subject_target_input');
-  if(target_input) target_input.value = retrieved_subject_data.target_percentage || 75;
+  if (target_input) target_input.value = retrieved_subject_data.target_percentage || 75;
 
   initialize_color_selection_palette(retrieved_subject_data.subject_color_hex || THEME_COLORS_ARRAY[0]);
   open_interface_modal('subject_creation_modal');
@@ -596,7 +596,7 @@ document.getElementById('subject_input_form').addEventListener('submit', (form_s
   const entered_subject_name_value = document.getElementById('subject_name_input').value.trim();
   const entered_subject_code_value = document.getElementById('subject_code_input').value.trim();
   const selected_subject_color_value = document.getElementById('subject_color_input').value;
-  
+
   const entered_target_percentage = parseInt(document.getElementById('subject_target_input').value) || 75;
 
   if (currently_editing_subject_identifier) {
@@ -612,10 +612,10 @@ document.getElementById('subject_input_form').addEventListener('submit', (form_s
     if (application_state.enrolled_subjects.find(subject_item => subject_item.subject_code_text === entered_subject_code_value)) {
       alert('Subject code must be unique!'); return;
     }
-    application_state.enrolled_subjects.push({ 
-      subject_identifier: generate_unique_random_identifier('sub'), 
-      subject_name_text: entered_subject_name_value, 
-      subject_code_text: entered_subject_code_value, 
+    application_state.enrolled_subjects.push({
+      subject_identifier: generate_unique_random_identifier('sub'),
+      subject_name_text: entered_subject_name_value,
+      subject_code_text: entered_subject_code_value,
       subject_color_hex: selected_subject_color_value,
       target_percentage: entered_target_percentage
     });
@@ -768,29 +768,37 @@ onAuthStateChanged(auth_service_instance, async (user) => {
 
   if (user) {
     current_logged_in_user = user;
-    
+
     login_screen.classList.add('hidden');
     main_app.classList.remove('hidden');
-    
+
     user_welcome_text.innerText = `Welcome, ${user.displayName.split(' ')[0]}`;
-    
+
     application_state.start_of_current_week = calculate_monday_of_target_week(new Date());
     application_state.current_mobile_date_object = new Date();
     initialize_color_selection_palette();
-    
-    await load_saved_application_data(); 
+
+    await load_saved_application_data();
   } else {
     current_logged_in_user = null;
-    
+
     login_screen.classList.remove('hidden');
     main_app.classList.add('hidden');
-    
+
     reset_application_state_to_default();
   }
 
   if (loading_overlay) {
     loading_overlay.classList.remove('active');
   }
+});
+
+window.close_install_help = function () {
+  document.getElementById('install_help_modal').classList.remove('active');
+};
+
+document.getElementById('install_help_btn')?.addEventListener('click', () => {
+  document.getElementById('install_help_modal').classList.add('active');
 });
 
 window.addEventListener('resize', render_entire_application_interface);
