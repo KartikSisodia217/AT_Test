@@ -26,17 +26,49 @@
     <div id="auth_loading_text" class="loading-text">Signing in...</div>
   </div>
 
-  <div id="login_screen" class="login-screen">
-    <div class="login-box">
-      <img src="assets/logo.png" alt="Logo" class="login-logo" onerror="this.style.display='none'">
-      <h1 class="login-title">Attendance Tracker</h1>
-      <p class="login-tagline">Track smarter. Stress less.</p>
-      <button class="google-btn" onclick="handle_auth_click()">
-        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G" class="google-icon">
-        Continue with Google
-      </button>
-    </div>
+ <div id="login_screen" class="login-screen">
+  <div class="login-box">
+
+    <img 
+      src="assets/logo.png" 
+      alt="Logo" 
+      class="login-logo" 
+      onerror="this.style.display='none'"
+    >
+
+    <h1 class="login-title">
+      Attendance Tracker
+    </h1>
+
+    <p class="login-tagline">
+      Track smarter. Stress less.
+    </p>
+
+    <button 
+      class="google-btn" 
+      onclick="handle_auth_click()"
+    >
+      <img 
+        src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
+        alt="G" 
+        class="google-icon"
+      >
+
+      Continue with Google
+    </button>
+
+
+
+    <button 
+      class="btn btn-secondary mobile-only-install"
+      onclick="window.location.href='install.html'"
+      style="margin-top:12px; color: var(--text);"
+    >
+      Install App [Recommended]
+    </button>
+
   </div>
+</div>
 
   <div id="main_app" class="app-container hidden">
     
