@@ -811,7 +811,7 @@ if ('serviceWorker' in navigator) {
 
 // ---------------- PWA INSTALL FLOW ----------------
 
-window.addEventListener('DOMContentLoaded', () => {
+
 
   let deferredPrompt = null;
 
@@ -869,5 +869,3 @@ window.addEventListener('DOMContentLoaded', () => {
     installButton.style.display = 'none';
     deferredPrompt = null;
   });
-
-});
