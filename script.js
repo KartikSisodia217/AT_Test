@@ -826,3 +826,24 @@ window.handle_install_click = async function() {
     window.location.href = 'install.html';
   }
 };
+
+if ('serviceWorker' in navigator) {
+
+  window.addEventListener('load', () => {
+
+    navigator.serviceWorker
+      .register('/service-worker.js')
+
+      .then((registration) => {
+        console.log('Service Worker registered:', registration);
+
+        alert('SW REGISTERED');
+      })
+
+      .catch((error) => {
+        console.error('SW registration failed:', error);
+
+        alert(error);
+      });
+  });
+}
