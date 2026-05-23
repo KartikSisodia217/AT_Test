@@ -840,7 +840,7 @@ if (installButton && iosInstallText) {
     installButton.style.display = 'flex';
 
     window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
+      
       deferredPrompt = e;
     });
 

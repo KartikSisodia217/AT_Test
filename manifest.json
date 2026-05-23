@@ -1,10 +1,10 @@
 {
-  "id": "/",
   "name": "Attendance Tracker",
   "short_name": "Attendance",
   "description": "Track attendance smarter across devices.",
   "lang": "en",
-  "start_url": "/index.html",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#0f1117",
   "theme_color": "#0f1117",
