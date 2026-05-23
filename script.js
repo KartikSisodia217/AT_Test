@@ -795,54 +795,79 @@ onAuthStateChanged(auth_service_instance, async (user) => {
 
 window.addEventListener('resize', render_entire_application_interface);
 
-// ---------------- PWA INSTALL FLOW ----------------
 
-let deferredPrompt = null;
+// ---------------- SERVICE WORKER ----------------
 
-const installButton = document.getElementById('install_app_btn');
-const iosInstallText = document.getElementById('ios_install_text');
-
-const isMobile = /android|iphone|ipad|ipod/i.test(window.navigator.userAgent);
-const isIOS = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
-
-const isInStandaloneMode =
-  window.matchMedia('(display-mode: standalone)').matches ||
-  window.navigator.standalone === true;
-
-// Show iPhone instructions only on iOS mobile browsers
-if (isMobile && isIOS && !isInStandaloneMode) {
-  iosInstallText.style.display = 'block';
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', async () => {
+    try {
+      await navigator.serviceWorker.register('/service-worker.js');
+      console.log('Service Worker Registered');
+    } catch (error) {
+      console.error('Service Worker Registration Failed:', error);
+    }
+  });
 }
 
-// Android/Chrome install prompt
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
+// ---------------- PWA INSTALL FLOW ----------------
 
-  deferredPrompt = e;
+window.addEventListener('DOMContentLoaded', () => {
 
-  // Show install button only on Android/mobile
-  if (isMobile && !isIOS && !isInStandaloneMode) {
-    installButton.style.display = 'flex';
+  let deferredPrompt = null;
+
+  const installButton = document.getElementById('install_app_btn');
+  const iosInstallText = document.getElementById('ios_install_text');
+
+  // Safety check
+  if (!installButton || !iosInstallText) {
+    console.error('Install elements not found');
+    return;
   }
-});
 
-// Handle install button click
-installButton.addEventListener('click', async () => {
-  if (!deferredPrompt) return;
+  const isMobile = /android|iphone|ipad|ipod/i.test(window.navigator.userAgent);
+  const isIOS = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
 
-  deferredPrompt.prompt();
+  const isInStandaloneMode =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true;
 
-  const { outcome } = await deferredPrompt.userChoice;
+  // Show iPhone instructions
+  if (isMobile && isIOS && !isInStandaloneMode) {
+    iosInstallText.style.display = 'block';
+  }
 
-  if (outcome === 'accepted') {
+  // Android install prompt
+  window.addEventListener('beforeinstallprompt', (e) => {
+
+    e.preventDefault();
+
+    deferredPrompt = e;
+
+    if (isMobile && !isIOS && !isInStandaloneMode) {
+      installButton.style.display = 'flex';
+    }
+  });
+
+  // Install button click
+  installButton.addEventListener('click', async () => {
+
+    if (!deferredPrompt) return;
+
+    deferredPrompt.prompt();
+
+    const { outcome } = await deferredPrompt.userChoice;
+
+    if (outcome === 'accepted') {
+      installButton.style.display = 'none';
+    }
+
+    deferredPrompt = null;
+  });
+
+  // Hide after successful install
+  window.addEventListener('appinstalled', () => {
     installButton.style.display = 'none';
-  }
+    deferredPrompt = null;
+  });
 
-  deferredPrompt = null;
-});
-
-// Hide button after successful install
-window.addEventListener('appinstalled', () => {
-  installButton.style.display = 'none';
-  deferredPrompt = null;
 });
