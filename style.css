@@ -1054,6 +1054,7 @@ body {
 .install-help-box h3 {
   margin-bottom: 18px;
   font-size: 18px;
+  color: var(--accent);
 }
 
 .install-section {
