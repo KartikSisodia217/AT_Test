@@ -445,7 +445,7 @@ body {
 @media (min-width: 1001px) {
   .mobile-overlay { display: none !important; }
   
-  
+  /* ✨ NEW: Desktop Collapsed Sidebar Logic ✨ */
   .sidebar {
     transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }

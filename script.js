@@ -179,7 +179,7 @@ function render_attendance_statistics_cards() {
       }
     }
 
-    
+    /* ✨ ADDED Classes: .subject-name-text and .target-text-output to allow clean hiding when sidebar collapses ✨ */
     statistics_list_container.innerHTML += `
       <div class="stat-card" style="border-left: 4px solid ${current_subject_data.subject_color_hex || 'var(--accent)'}">
         <div class="subject-header" style="align-items: flex-start;">
@@ -421,7 +421,7 @@ function render_mobile_day_view(mobile_container) {
               <strong style="color: ${parent_subject_data_object.subject_color_hex || 'var(--accent)'}; font-size: 15px;">${parent_subject_data_object.subject_code_text}</strong>
               <span style="font-size: 14px; margin-top: 2px;">${parent_subject_data_object.subject_name_text}</span>
               <span style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">
-                ${lecture_data_object.start_time_hour_value}:00 - ${lecture_data_object.start_time_hour_value + lecture_data_object.lecture_duration_value}:00
+                🕒 ${lecture_data_object.start_time_hour_value}:00 - ${lecture_data_object.start_time_hour_value + lecture_data_object.lecture_duration_value}:00
                 ${lecture_data_object.lecture_type_string === 'extra' ? '<span style="color: var(--accent); margin-left: 4px;">(Extra Class)</span>' : ''}
               </span>
             </div>
@@ -504,7 +504,7 @@ function render_mobile_week_view(mobile_container) {
           <div class="compact-lecture-card" style="border-left-color: ${parent_subject_data.subject_color_hex || 'var(--accent)'}">
             <div class="compact-lecture-info">
               <strong style="color: ${parent_subject_data.subject_color_hex || 'var(--accent)'}; font-size: 13px;">${parent_subject_data.subject_code_text}</strong>
-              <span style="font-size: 11px; color: var(--text-muted); margin-top: 3px;"> ${lecture_data.start_time_hour_value}:00 - ${lecture_data.start_time_hour_value + lecture_data.lecture_duration_value}:00</span>
+              <span style="font-size: 11px; color: var(--text-muted); margin-top: 3px;">🕒 ${lecture_data.start_time_hour_value}:00 - ${lecture_data.start_time_hour_value + lecture_data.lecture_duration_value}:00</span>
             </div>
             <div class="compact-att-controls">
               <button class="compact-att-btn ${p_class}" style="${p_class ? 'background:var(--present); color:#000; border-color:var(--present);' : ''}" onclick="mark_specific_lecture_attendance_bulk('${att_identifier}', '${lecture_data.parent_subject_identifier}', '${loop_date_string}', ${lecture_data.start_time_hour_value}, ${lecture_data.lecture_duration_value}, 'P')">P</button>
@@ -794,82 +794,3 @@ onAuthStateChanged(auth_service_instance, async (user) => {
 });
 
 window.addEventListener('resize', render_entire_application_interface);
-
-
-// ---------------- SERVICE WORKER ----------------
-
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', async () => {
-    try {
-      await navigator.serviceWorker.register('/service-worker.js');
-      console.log('Service Worker Registered');
-    } catch (error) {
-      console.error('Service Worker Registration Failed:', error);
-    }
-  });
-}
-
-// ---------------- PWA INSTALL FLOW ----------------
-
-let deferredPrompt = null;
-
-const installButton = document.getElementById('install_app_btn');
-const iosInstallText = document.getElementById('ios_install_text');
-
-if (installButton && iosInstallText) {
-
-  const isMobile = /android|iphone|ipad|ipod/i.test(window.navigator.userAgent);
-  const isIOS = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
-
-  const isInStandaloneMode =
-    window.matchMedia('(display-mode: standalone)').matches ||
-    window.navigator.standalone === true;
-
-  // Hide by default
-  installButton.style.display = 'none';
-  iosInstallText.style.display = 'none';
-
-  // iPhone instructions
-  if (isMobile && isIOS && !isInStandaloneMode) {
-    iosInstallText.style.display = 'block';
-  }
-
-  // Android install flow
-  if (isMobile && !isIOS && !isInStandaloneMode) {
-
-    installButton.style.display = 'flex';
-
-    window.addEventListener('beforeinstallprompt', (e) => {
-      
-      deferredPrompt = e;
-    });
-
-    installButton.addEventListener('click', async () => {
-
-      if (!deferredPrompt) {
-
-        alert(
-          'If install popup does not appear:\n\nChrome Menu (⋮) → Add to Home Screen'
-        );
-
-        return;
-      }
-
-      deferredPrompt.prompt();
-
-      const { outcome } = await deferredPrompt.userChoice;
-
-      if (outcome === 'accepted') {
-        installButton.style.display = 'none';
-      }
-
-      deferredPrompt = null;
-    });
-  }
-
-  // Hide after install
-  window.addEventListener('appinstalled', () => {
-    installButton.style.display = 'none';
-    deferredPrompt = null;
-  });
-}
