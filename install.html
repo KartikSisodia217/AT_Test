@@ -89,7 +89,7 @@
       </div>
 
       <!-- Hidden by default, activated via JS on Android -->
-      <div class="install-step" id="android-install-section" style="display: none;">
+      <div class="install-step" id="android-install-section">
         <h3>For Android</h3>
         <p style="margin-bottom: 12px;">Install the app directly to your home screen for quick access.</p>
         <button id="install-btn" class="btn">Install App</button>
@@ -111,26 +111,33 @@
       // Stash the event so it can be triggered later
       deferredPrompt = e;
       // Show our custom install button UI
-      androidSection.style.display = 'block';
+      
     });
 
     // Handle the button click
     installBtn.addEventListener('click', async () => {
-      if (deferredPrompt) {
-        // Show the native install prompt
-        deferredPrompt.prompt();
-        // Wait for the user to respond
-        const { outcome } = await deferredPrompt.userChoice;
-        
-        if (outcome === 'accepted') {
-          // If they installed it, hide our button
-          androidSection.style.display = 'none';
-        }
-        
-        // We can only use the prompt once, clear it
-        deferredPrompt = null;
-      }
-    });
+
+  // Native Android install popup
+  if (deferredPrompt) {
+
+    deferredPrompt.prompt();
+
+    const { outcome } = await deferredPrompt.userChoice;
+
+    if (outcome === 'accepted') {
+      androidSection.style.display = 'none';
+    }
+
+    deferredPrompt = null;
+
+    return;
+  }
+
+  // Fallback if prompt unavailable
+  alert(
+    'If the install popup does not appear, open Chrome menu ⋮ and tap "Add to Home Screen".'
+  );
+});
 
     // Hide the button if the user successfully installs it
     window.addEventListener('appinstalled', () => {

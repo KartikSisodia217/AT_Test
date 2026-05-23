@@ -583,4 +583,23 @@ body {
 }
 .loading-text { color: var(--text); font-size: 14px; font-weight: 500; letter-spacing: 0.5px; }
 
+
+
+.mobile-only-install {
+  display: none;
+}
+
+@media (max-width: 1000px) {
+
+  .mobile-only-install {
+    display: flex !important;
+  }
+}
+
+@media (min-width: 1001px) {
+
+  .mobile-only-install {
+    display: none !important;
+  }
+}
 @keyframes spin { 100% { transform: rotate(360deg); } }
