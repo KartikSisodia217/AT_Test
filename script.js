@@ -1,4 +1,10 @@
 import {
+  TIMETABLE_DURATION_OPTIONS,
+  TIMETABLE_TIME_OPTIONS,
+  parse_timetable_text_to_entries,
+  reconstruct_grid_from_bboxes 
+} from './timetable-parser.js';
+import {
   auth_service_instance,
   google_auth_provider,
   firestore_database_instance,
@@ -15,6 +21,12 @@ import {
   getDoc,
   setDoc,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import {
+  TIMETABLE_DURATION_OPTIONS,
+  TIMETABLE_TIME_OPTIONS,
+  parse_timetable_text_to_entries,
+  reconstruct_grid_from_bboxes
+} from './timetable-parser.js';
 
 const application_state = {
   enrolled_subjects: [],
@@ -49,28 +61,6 @@ const THEME_COLORS_ARRAY = [
   '#1abc9c',
   '#00cec9',
 ];
-const TIMETABLE_TIME_OPTIONS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
-const TIMETABLE_DURATION_OPTIONS = [1, 2, 3, 4];
-const DAY_NAME_LOOKUP = {
-  mon: 'Monday',
-  monday: 'Monday',
-  tue: 'Tuesday',
-  tues: 'Tuesday',
-  tuesday: 'Tuesday',
-  wed: 'Wednesday',
-  weds: 'Wednesday',
-  wednesday: 'Wednesday',
-  thu: 'Thursday',
-  thur: 'Thursday',
-  thurs: 'Thursday',
-  thursday: 'Thursday',
-  fri: 'Friday',
-  friday: 'Friday',
-};
-const TIMETABLE_SKIP_CELL_PATTERN =
-  /\b(break|lunch|recess|free|empty|library|seminar|assembly)\b/i;
-const COURSE_CODE_PATTERN =
-  /\b[A-Z]{1,5}\s*-?\s*\d{2,4}[A-Z]?(?:\s*\(\s*L\s*\)|\s+L\b)?/gi;
 
 async function load_saved_application_data() {
   if (!current_logged_in_user) return;
@@ -193,315 +183,6 @@ function retrieve_subject_object_by_identifier(target_subject_identifier) {
     subject_item =>
       subject_item.subject_identifier === target_subject_identifier,
   );
-}
-
-function normalize_timetable_ocr_text(raw_text_value) {
-  return String(raw_text_value || '')
-    .replace(/[‐‑‒–—]/g, '-')
-    .replace(/\r/g, '\n')
-    .replace(/[|¦]/g, ' | ')
-    .replace(/\u00a0/g, ' ');
-}
-
-function detect_day_name_in_text(text_value) {
-  const matched_day = String(text_value || '').match(
-    /\b(mon(?:day)?|tue(?:s|sday|day)?|wed(?:s|nesday)?|thu(?:r|rs|rsday|day)?|fri(?:day)?)\b/i,
-  );
-  if (!matched_day) return null;
-  return DAY_NAME_LOOKUP[matched_day[1].toLowerCase()] || null;
-}
-
-function strip_detected_day_from_text(text_value) {
-  return String(text_value || '')
-    .replace(
-      /\b(mon(?:day)?|tue(?:s|sday|day)?|wed(?:s|nesday)?|thu(?:r|rs|rsday|day)?|fri(?:day)?)\b/i,
-      '',
-    )
-    .trim();
-}
-
-function parse_clock_token_to_hour(clock_token_string) {
-  const parsed_clock_parts = String(clock_token_string || '')
-    .trim()
-    .match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i);
-  if (!parsed_clock_parts) return null;
-
-  let hour_value = parseInt(parsed_clock_parts[1], 10);
-  const meridiem_value = parsed_clock_parts[3]?.toLowerCase();
-
-  if (meridiem_value === 'pm' && hour_value < 12) hour_value += 12;
-  if (meridiem_value === 'am' && hour_value === 12) hour_value = 0;
-  if (!meridiem_value && hour_value >= 1 && hour_value <= 7) {
-    hour_value += 12;
-  }
-
-  return hour_value;
-}
-
-function parse_time_range_from_text(time_range_text_value) {
-  const normalized_range_text = String(time_range_text_value || '').replace(
-    /\s+/g,
-    '',
-  ).replace(/to/i, '-');
-  const time_range_match = normalized_range_text.match(
-    /(\d{1,2}(?::\d{2})?(?:am|pm)?)[-](\d{1,2}(?::\d{2})?(?:am|pm)?)/i,
-  );
-  if (!time_range_match) return null;
-
-  const start_hour_value = parse_clock_token_to_hour(time_range_match[1]);
-  let end_hour_value = parse_clock_token_to_hour(time_range_match[2]);
-  if (start_hour_value === null || end_hour_value === null) return null;
-  if (end_hour_value <= start_hour_value) end_hour_value += 12;
-
-  const duration_value = Math.max(
-    1,
-    Math.min(4, Math.round(end_hour_value - start_hour_value)),
-  );
-
-  if (!TIMETABLE_TIME_OPTIONS.includes(start_hour_value)) return null;
-  return {
-    startHour: start_hour_value,
-    duration: duration_value,
-  };
-}
-
-function find_time_ranges_in_line(line_text_value) {
-  const matches_array = [];
-  const time_range_pattern =
-    /(\d{1,2}(?::\d{2})?\s*(?:am|pm)?\s*(?:-|to)\s*\d{1,2}(?::\d{2})?\s*(?:am|pm)?)/gi;
-  let range_match = time_range_pattern.exec(line_text_value);
-
-  while (range_match) {
-    const parsed_range = parse_time_range_from_text(range_match[1]);
-    if (parsed_range) {
-      matches_array.push({
-        ...parsed_range,
-        index: range_match.index,
-        text: range_match[1],
-      });
-    }
-    range_match = time_range_pattern.exec(line_text_value);
-  }
-
-  return matches_array;
-}
-
-function normalize_subject_code_for_import(raw_subject_text, is_lab_entry) {
-  const subject_text = String(raw_subject_text || '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  const course_code_match = subject_text.match(COURSE_CODE_PATTERN);
-  let subject_code_value = course_code_match
-    ? course_code_match[0]
-    : subject_text
-        .replace(TIMETABLE_SKIP_CELL_PATTERN, '')
-        .replace(/[^\w() -]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .slice(0, 24);
-
-  subject_code_value = subject_code_value
-    .replace(/\s*-\s*/g, '')
-    .replace(/\s+/g, '')
-    .replace(/\(\s*l\s*\)$/i, '(L)')
-    .replace(/l$/i, match_value =>
-      /\d+\s*l$/i.test(subject_code_value) ? '(L)' : match_value,
-    )
-    .toUpperCase();
-
-  if (is_lab_entry) {
-    subject_code_value = subject_code_value.replace(/\(L\)$/i, '');
-    return `${subject_code_value}(L)`;
-  }
-
-  return subject_code_value.replace(/\(L\)$/i, '');
-}
-
-function does_timetable_cell_indicate_lab(cell_text_value) {
-  const normalized_cell_text = String(cell_text_value || '').toLowerCase();
-  return (
-    /\b(lab|practical|workshop)\b/.test(normalized_cell_text) ||
-    /\b[a-z]{1,5}\s*lab\s*[-]?\s*\d{0,3}\b/.test(normalized_cell_text) ||
-    /\b(?:lab|cl|pl|wl)\s*[-]?\s*\d{1,3}\b/.test(normalized_cell_text) ||
-    /\b(?:computer|physics|chemistry|electronics|mechanical)\s+lab\b/.test(
-      normalized_cell_text,
-    ) ||
-    /\(\s*l\s*\)/i.test(cell_text_value)
-  );
-}
-
-function is_timetable_cell_probably_class(cell_text_value) {
-  const normalized_cell_text = String(cell_text_value || '').trim();
-  if (!normalized_cell_text) return false;
-  if (TIMETABLE_SKIP_CELL_PATTERN.test(normalized_cell_text)) return false;
-  COURSE_CODE_PATTERN.lastIndex = 0;
-  return (
-    COURSE_CODE_PATTERN.test(normalized_cell_text.toUpperCase()) ||
-    /[A-Za-z]{2,}/.test(normalized_cell_text)
-  );
-}
-
-function build_timetable_import_entry(raw_cell_text, day_name, time_slot) {
-  const is_lab_entry = does_timetable_cell_indicate_lab(raw_cell_text);
-  const subject_code_value = normalize_subject_code_for_import(
-    raw_cell_text,
-    is_lab_entry,
-  );
-  if (!subject_code_value) return null;
-
-  return {
-    subjectCode: subject_code_value,
-    type: is_lab_entry ? 'lab' : 'theory',
-    day: day_name,
-    startHour: time_slot.startHour,
-    duration: time_slot.duration,
-    rawText: String(raw_cell_text || '').trim(),
-  };
-}
-
-function split_timetable_row_cells(row_text_value) {
-  const normalized_row_text = String(row_text_value || '')
-    .replace(/\s*\|\s*/g, ' | ')
-    .replace(/\s{3,}/g, '  ')
-    .trim();
-  let row_cells_array = normalized_row_text
-    .split(/\s+\|\s+|\t+|\s{2,}/)
-    .map(cell_text => cell_text.trim())
-    .filter(Boolean);
-
-  if (row_cells_array.length <= 1) {
-    COURSE_CODE_PATTERN.lastIndex = 0;
-    const course_matches = [
-      ...normalized_row_text.toUpperCase().matchAll(COURSE_CODE_PATTERN),
-    ];
-    if (course_matches.length > 1) {
-      row_cells_array = course_matches.map((match_item, index_value) => {
-        const next_match = course_matches[index_value + 1];
-        return normalized_row_text
-          .slice(match_item.index, next_match?.index || undefined)
-          .trim();
-      });
-    }
-  }
-
-  return row_cells_array;
-}
-
-function parse_inline_timetable_entries(line_text_value, day_name) {
-  const inline_entries_array = [];
-  const time_matches_array = find_time_ranges_in_line(line_text_value);
-  if (time_matches_array.length === 0) return inline_entries_array;
-
-  const text_before_first_time = strip_detected_day_from_text(
-    line_text_value.slice(0, time_matches_array[0].index),
-  );
-  const uses_subject_before_time =
-    is_timetable_cell_probably_class(text_before_first_time);
-
-  time_matches_array.forEach((time_match_item, index_value) => {
-    const previous_segment_start =
-      index_value === 0
-        ? 0
-        : time_matches_array[index_value - 1].index +
-          time_matches_array[index_value - 1].text.length;
-    const segment_start = time_match_item.index + time_match_item.text.length;
-    const segment_end =
-      time_matches_array[index_value + 1]?.index || line_text_value.length;
-    const prefix_text_value = strip_detected_day_from_text(
-      line_text_value.slice(previous_segment_start, time_match_item.index),
-    );
-    const suffix_text_value = line_text_value.slice(segment_start, segment_end);
-    let class_text_value = uses_subject_before_time
-      ? prefix_text_value
-      : suffix_text_value;
-
-    if (
-      uses_subject_before_time &&
-      does_timetable_cell_indicate_lab(suffix_text_value)
-    ) {
-      class_text_value = `${class_text_value} ${suffix_text_value}`;
-    }
-
-    if (!is_timetable_cell_probably_class(class_text_value)) {
-      class_text_value = uses_subject_before_time
-        ? suffix_text_value
-        : prefix_text_value;
-    }
-
-    if (!is_timetable_cell_probably_class(class_text_value)) return;
-    const import_entry = build_timetable_import_entry(
-      class_text_value,
-      day_name,
-      time_match_item,
-    );
-    if (import_entry) inline_entries_array.push(import_entry);
-  });
-
-  return inline_entries_array;
-}
-
-function dedupe_timetable_import_entries(entries_array) {
-  const seen_keys_set = new Set();
-  return entries_array.filter(entry_item => {
-    const unique_key = [
-      entry_item.subjectCode,
-      entry_item.type,
-      entry_item.day,
-      entry_item.startHour,
-      entry_item.duration,
-    ].join('|');
-    if (seen_keys_set.has(unique_key)) return false;
-    seen_keys_set.add(unique_key);
-    return true;
-  });
-}
-
-function parse_timetable_text_to_entries(raw_text_value) {
-  const normalized_text_value = normalize_timetable_ocr_text(raw_text_value);
-  const text_lines_array = normalized_text_value
-    .split('\n')
-    .map(line_text => line_text.replace(/\s+/g, ' ').trim())
-    .filter(Boolean);
-  let detected_header_time_slots = [];
-  const parsed_entries_array = [];
-
-  text_lines_array.forEach(line_text => {
-    const time_ranges_in_line = find_time_ranges_in_line(line_text);
-    const day_name = detect_day_name_in_text(line_text);
-
-    if (!day_name && time_ranges_in_line.length >= 2) {
-      detected_header_time_slots = time_ranges_in_line.map(time_slot => ({
-        startHour: time_slot.startHour,
-        duration: time_slot.duration,
-      }));
-      return;
-    }
-
-    if (!day_name) return;
-
-    const inline_entries = parse_inline_timetable_entries(line_text, day_name);
-    if (inline_entries.length > 0) {
-      parsed_entries_array.push(...inline_entries);
-      return;
-    }
-
-    if (detected_header_time_slots.length === 0) return;
-
-    const row_without_day = strip_detected_day_from_text(line_text);
-    const row_cells_array = split_timetable_row_cells(row_without_day);
-    row_cells_array.forEach((cell_text, cell_index) => {
-      if (cell_index >= detected_header_time_slots.length) return;
-      if (!is_timetable_cell_probably_class(cell_text)) return;
-      const import_entry = build_timetable_import_entry(
-        cell_text,
-        day_name,
-        detected_header_time_slots[cell_index],
-      );
-      if (import_entry) parsed_entries_array.push(import_entry);
-    });
-  });
-
-  return dedupe_timetable_import_entries(parsed_entries_array);
 }
 
 function gather_lectures_for_date(target_date_string, derived_day_name_string) {
@@ -867,7 +548,6 @@ window.handleDateChange = function (selectedDateString) {
 
   const diffTime = selectedDate - currDate;
 
-  // 1 day = 24*60*60*1000 = 86400000 ms
   const offset = Math.round(diffTime / 86400000);
 
   navigate_mobile_day(offset);
@@ -1401,15 +1081,26 @@ window.open_timetable_import_modal = function () {
   pending_timetable_import_entries = [];
   document.getElementById('timetable_image_input').value = '';
   document.getElementById('timetable_ocr_text_input').value = '';
-  document.getElementById('timetable_ocr_status').textContent =
-    'Upload a PNG, JPG, or WebP screenshot.';
+  
+ 
+  const statusEl = document.getElementById('timetable_ocr_status');
+  statusEl.innerHTML = `
+    Upload a PNG, JPG, or WebP screenshot.
+    <div style="margin-top: 10px; padding: 8px; background: rgba(255, 152, 0, 0.1); border-left: 3px solid #ff9800; text-align: left; font-size: 13px;">
+      <b>⚠️ Fix OCR mistakes before parsing:</b><br>
+      • Remove spaces in codes (<code>SE 104</code> → <code>SE104</code>)<br>
+      • Fix letter/number confusion (<code>coi02</code> → <code>CO102</code>)<br>
+      • Ensure columns look somewhat aligned
+    </div>
+  `;
+  
   show_timetable_ocr_step();
   open_interface_modal('timetable_import_modal');
 };
 
 window.run_timetable_image_ocr = async function () {
-  const file_input_element = document.getElementById('timetable_image_input');
-  const selected_file = file_input_element.files?.[0];
+  const file_input = document.getElementById('timetable_image_input');
+  const selected_file = file_input.files?.[0];
   const status_element = document.getElementById('timetable_ocr_status');
   const ocr_button = document.getElementById('run_timetable_ocr_button');
 
@@ -1419,37 +1110,40 @@ window.run_timetable_image_ocr = async function () {
   }
 
   if (!window.Tesseract) {
-    show_custom_alert(
-      'OCR library could not load. Paste timetable text into the text box and parse it manually.',
-    );
+    show_custom_alert('OCR library missing. Paste text manually.');
     return;
   }
 
   try {
     ocr_button.disabled = true;
-    status_element.textContent = 'Reading image...';
+    status_element.textContent = 'Reading image and mapping layout...';
+    
     const ocr_result = await window.Tesseract.recognize(selected_file, 'eng', {
-      logger: progress_data => {
-        if (progress_data.status === 'recognizing text') {
-          status_element.textContent = `Reading image... ${Math.round(progress_data.progress * 100)}%`;
-        } else if (progress_data.status) {
-          status_element.textContent = progress_data.status;
+      logger: progress => {
+        if (progress.status === 'recognizing text') {
+          status_element.textContent = `Analyzing structure... ${Math.round(progress.progress * 100)}%`;
         }
       },
     });
-    document.getElementById('timetable_ocr_text_input').value =
-      ocr_result.data.text || '';
-    status_element.textContent =
-      'Text extracted. Review it, fix OCR mistakes, then parse preview.';
+
+    let extracted_text = '';
+   
+    if (ocr_result.data && ocr_result.data.words && ocr_result.data.words.length > 0) {
+      extracted_text = reconstruct_grid_from_bboxes(ocr_result.data.words);
+    } else {
+      extracted_text = ocr_result.data.text || '';
+    }
+
+    document.getElementById('timetable_ocr_text_input').value = extracted_text;
+    status_element.innerHTML = '<span style="color:var(--present);">✅ OCR Complete.</span> Review the text below and fix mistakes before hitting Parse.';
   } catch (error) {
     console.error(error);
     status_element.textContent = 'OCR failed. You can paste text manually.';
-    show_custom_alert('OCR failed. Try a clearer image or paste timetable text manually.');
+    show_custom_alert('OCR failed. Try a clearer image.');
   } finally {
     ocr_button.disabled = false;
   }
 };
-
 window.parse_timetable_text_for_review = function () {
   const timetable_text_value = document
     .getElementById('timetable_ocr_text_input')
@@ -1460,8 +1154,14 @@ window.parse_timetable_text_for_review = function () {
     return;
   }
 
-  pending_timetable_import_entries =
-    parse_timetable_text_to_entries(timetable_text_value);
+  pending_timetable_import_entries = parse_timetable_text_to_entries(
+    timetable_text_value,
+    {
+      knownSubjectCodes: application_state.enrolled_subjects.map(
+        subject_item => subject_item.subject_code_text,
+      ),
+    },
+  );
 
   if (pending_timetable_import_entries.length === 0) {
     show_custom_alert(
@@ -2006,21 +1706,19 @@ onAuthStateChanged(auth_service_instance, async user => {
     login_screen.classList.add('hidden');
     main_app.classList.remove('hidden');
 
-    user_welcome_text.innerText = `Welcome, ${user.displayName.split(' ')[0]}`;
+   
+    const safeName = (user.displayName || 'User').split(' ')[0];
+    user_welcome_text.innerText = `Welcome, ${safeName}`;
 
-    application_state.start_of_current_week = calculate_monday_of_target_week(
-      new Date(),
-    );
+    application_state.start_of_current_week = calculate_monday_of_target_week(new Date());
     application_state.current_mobile_date_object = new Date();
     initialize_color_selection_palette();
 
     await load_saved_application_data();
   } else {
     current_logged_in_user = null;
-
     login_screen.classList.remove('hidden');
     main_app.classList.add('hidden');
-
     reset_application_state_to_default();
   }
 
