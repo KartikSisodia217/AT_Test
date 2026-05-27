@@ -217,6 +217,27 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="custom_alert_modal" role="dialog" aria-modal="true" aria-labelledby="custom_alert_title">
+    <div class="modal-box custom-dialog-box">
+      <div class="modal-title" id="custom_alert_title">Notice</div>
+      <p class="custom-dialog-message" id="custom_alert_message"></p>
+      <div class="modal-actions custom-dialog-actions">
+        <button type="button" class="btn" id="custom_alert_ok_button" onclick="close_custom_alert()">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="custom_confirm_modal" role="dialog" aria-modal="true" aria-labelledby="custom_confirm_title">
+    <div class="modal-box custom-dialog-box">
+      <div class="modal-title" id="custom_confirm_title">Confirm</div>
+      <p class="custom-dialog-message" id="custom_confirm_message"></p>
+      <div class="modal-actions custom-dialog-actions">
+        <button type="button" class="btn btn-secondary" id="custom_confirm_cancel_button" onclick="cancel_custom_confirm()">Cancel</button>
+        <button type="button" class="btn" id="custom_confirm_ok_button" onclick="confirm_custom_dialog()">Confirm</button>
+      </div>
+    </div>
+  </div>
+
   <script type="module" src="script.js"></script>
 </body>
 

@@ -896,9 +896,48 @@ window.select_subject_color_swatch = function (
   document.getElementById('subject_color_input').value = color_hex_code_value;
 };
 
+let pending_custom_confirm_callback = null;
+
+window.show_custom_alert = function (message) {
+  const alert_message_element = document.getElementById('custom_alert_message');
+  alert_message_element.textContent = message;
+  open_interface_modal('custom_alert_modal');
+  setTimeout(() => document.getElementById('custom_alert_ok_button').focus(), 0);
+};
+
+window.close_custom_alert = function () {
+  document.getElementById('custom_alert_modal').classList.remove('active');
+};
+
+window.show_custom_confirm = function (message, onConfirm) {
+  pending_custom_confirm_callback =
+    typeof onConfirm === 'function' ? onConfirm : null;
+  const confirm_message_element = document.getElementById(
+    'custom_confirm_message',
+  );
+  confirm_message_element.textContent = message;
+  open_interface_modal('custom_confirm_modal');
+  setTimeout(
+    () => document.getElementById('custom_confirm_cancel_button').focus(),
+    0,
+  );
+};
+
+window.cancel_custom_confirm = function () {
+  pending_custom_confirm_callback = null;
+  document.getElementById('custom_confirm_modal').classList.remove('active');
+};
+
+window.confirm_custom_dialog = function () {
+  const callback_to_execute = pending_custom_confirm_callback;
+  pending_custom_confirm_callback = null;
+  document.getElementById('custom_confirm_modal').classList.remove('active');
+  if (callback_to_execute) callback_to_execute();
+};
+
 window.handle_empty_cell_click = function (day_name, hour_value) {
   if (application_state.enrolled_subjects.length === 0) {
-    alert('Please add a subject first!');
+    show_custom_alert('Please add a subject first!');
     return;
   }
   document.getElementById('slot_day_selection').value = day_name;
@@ -967,7 +1006,7 @@ document
             currently_editing_subject_identifier,
         )
       ) {
-        alert('Subject code must be unique!');
+        show_custom_alert('Subject code must be unique!');
         return;
       }
       const subject_to_update = retrieve_subject_object_by_identifier(
@@ -984,7 +1023,7 @@ document
             subject_item.subject_code_text === entered_subject_code_value,
         )
       ) {
-        alert('Subject code must be unique!');
+        show_custom_alert('Subject code must be unique!');
         return;
       }
       application_state.enrolled_subjects.push({
@@ -1002,35 +1041,35 @@ document
   });
 
 window.delete_selected_subject_data = function (target_subject_identifier) {
-  if (
-    !confirm(
-      'Delete subject? This will remove all associated slots, extra classes, and attendance.',
-    )
-  )
-    return;
-  application_state.enrolled_subjects =
-    application_state.enrolled_subjects.filter(
-      subject_item =>
-        subject_item.subject_identifier !== target_subject_identifier,
-    );
-  application_state.weekly_schedule_slots =
-    application_state.weekly_schedule_slots.filter(
-      slot_item =>
-        slot_item.parent_subject_identifier !== target_subject_identifier,
-    );
-  application_state.additional_extra_classes =
-    application_state.additional_extra_classes.filter(
-      extra_class_item =>
-        extra_class_item.parent_subject_identifier !==
-        target_subject_identifier,
-    );
-  application_state.attendance_records =
-    application_state.attendance_records.filter(
-      attendance_item =>
-        attendance_item.parent_subject_identifier !== target_subject_identifier,
-    );
-  save_current_application_data();
-  render_entire_application_interface();
+  show_custom_confirm(
+    'Delete subject? This will remove all associated slots, extra classes, and attendance.',
+    () => {
+      application_state.enrolled_subjects =
+        application_state.enrolled_subjects.filter(
+          subject_item =>
+            subject_item.subject_identifier !== target_subject_identifier,
+        );
+      application_state.weekly_schedule_slots =
+        application_state.weekly_schedule_slots.filter(
+          slot_item =>
+            slot_item.parent_subject_identifier !== target_subject_identifier,
+        );
+      application_state.additional_extra_classes =
+        application_state.additional_extra_classes.filter(
+          extra_class_item =>
+            extra_class_item.parent_subject_identifier !==
+            target_subject_identifier,
+        );
+      application_state.attendance_records =
+        application_state.attendance_records.filter(
+          attendance_item =>
+            attendance_item.parent_subject_identifier !==
+            target_subject_identifier,
+        );
+      save_current_application_data();
+      render_entire_application_interface();
+    },
+  );
 };
 
 document
@@ -1082,80 +1121,82 @@ window.delete_scheduled_lecture_instance = function (
   lecture_type_string_value,
   target_lecture_identifier,
 ) {
-  if (
-    !confirm(
-      'Delete this class? All associated attendance records will be removed.',
-    )
-  )
-    return;
-
-  if (lecture_type_string_value === 'slot') {
-    const located_slot_record = application_state.weekly_schedule_slots.find(
-      slot_item => slot_item.slot_identifier === target_lecture_identifier,
-    );
-    if (located_slot_record) {
-      application_state.attendance_records =
-        application_state.attendance_records.filter(attendance_item => {
-          if (
-            attendance_item.parent_subject_identifier ===
-            located_slot_record.parent_subject_identifier &&
-            attendance_item.lecture_start_hour ===
-            located_slot_record.start_time_hour_value
-          ) {
-            const parsed_attendance_date = new Date(
-              attendance_item.lecture_date_string + 'T00:00:00',
-            );
-            const derived_day_name_string = [
-              'Sunday',
-              'Monday',
-              'Tuesday',
-              'Wednesday',
-              'Thursday',
-              'Friday',
-              'Saturday',
-            ][parsed_attendance_date.getDay()];
-            if (
-              derived_day_name_string === located_slot_record.day_of_week_name
-            )
-              return false;
-          }
-          return true;
-        });
-    }
-    application_state.weekly_schedule_slots =
-      application_state.weekly_schedule_slots.filter(
-        slot_item => slot_item.slot_identifier !== target_lecture_identifier,
-      );
-  }
-
-  if (lecture_type_string_value === 'extra') {
-    const located_extra_class_record =
-      application_state.additional_extra_classes.find(
-        extra_class_item =>
-          extra_class_item.extra_class_identifier === target_lecture_identifier,
-      );
-    if (located_extra_class_record) {
-      application_state.attendance_records =
-        application_state.attendance_records.filter(
-          attendance_item =>
-            !(
-              attendance_item.parent_subject_identifier ===
-              located_extra_class_record.parent_subject_identifier &&
-              attendance_item.lecture_date_string ===
-              located_extra_class_record.lecture_date_string &&
-              attendance_item.lecture_start_hour ===
-              located_extra_class_record.start_time_hour_value
-            ),
+  show_custom_confirm(
+    'Delete this class? All associated attendance records will be removed.',
+    () => {
+      if (lecture_type_string_value === 'slot') {
+        const located_slot_record = application_state.weekly_schedule_slots.find(
+          slot_item => slot_item.slot_identifier === target_lecture_identifier,
         );
-    }
-    application_state.additional_extra_classes =
-      application_state.additional_extra_classes.filter(
-        extra_class_item =>
-          extra_class_item.extra_class_identifier !== target_lecture_identifier,
-      );
-  }
-  save_current_application_data();
-  render_entire_application_interface();
+        if (located_slot_record) {
+          application_state.attendance_records =
+            application_state.attendance_records.filter(attendance_item => {
+              if (
+                attendance_item.parent_subject_identifier ===
+                located_slot_record.parent_subject_identifier &&
+                attendance_item.lecture_start_hour ===
+                located_slot_record.start_time_hour_value
+              ) {
+                const parsed_attendance_date = new Date(
+                  attendance_item.lecture_date_string + 'T00:00:00',
+                );
+                const derived_day_name_string = [
+                  'Sunday',
+                  'Monday',
+                  'Tuesday',
+                  'Wednesday',
+                  'Thursday',
+                  'Friday',
+                  'Saturday',
+                ][parsed_attendance_date.getDay()];
+                if (
+                  derived_day_name_string ===
+                  located_slot_record.day_of_week_name
+                )
+                  return false;
+              }
+              return true;
+            });
+        }
+        application_state.weekly_schedule_slots =
+          application_state.weekly_schedule_slots.filter(
+            slot_item =>
+              slot_item.slot_identifier !== target_lecture_identifier,
+          );
+      }
+
+      if (lecture_type_string_value === 'extra') {
+        const located_extra_class_record =
+          application_state.additional_extra_classes.find(
+            extra_class_item =>
+              extra_class_item.extra_class_identifier ===
+              target_lecture_identifier,
+          );
+        if (located_extra_class_record) {
+          application_state.attendance_records =
+            application_state.attendance_records.filter(
+              attendance_item =>
+                !(
+                  attendance_item.parent_subject_identifier ===
+                  located_extra_class_record.parent_subject_identifier &&
+                  attendance_item.lecture_date_string ===
+                  located_extra_class_record.lecture_date_string &&
+                  attendance_item.lecture_start_hour ===
+                  located_extra_class_record.start_time_hour_value
+                ),
+            );
+        }
+        application_state.additional_extra_classes =
+          application_state.additional_extra_classes.filter(
+            extra_class_item =>
+              extra_class_item.extra_class_identifier !==
+              target_lecture_identifier,
+          );
+      }
+      save_current_application_data();
+      render_entire_application_interface();
+    },
+  );
 };
 
 window.mark_specific_lecture_attendance_bulk = function (
@@ -1215,7 +1256,7 @@ window.mark_full_day_attendance_bulk = function (
   );
 
   if (compiled_lectures_for_day_array.length === 0) {
-    alert('No classes scheduled for this day.');
+    show_custom_alert('No classes scheduled for this day.');
     return;
   }
 
@@ -1269,12 +1310,43 @@ window.open_interface_modal = function (target_modal_identifier_string) {
     .classList.add('active');
 };
 window.close_all_interface_modals = function () {
+  pending_custom_confirm_callback = null;
   document
     .querySelectorAll('.modal-overlay')
     .forEach(modal_overlay_element =>
       modal_overlay_element.classList.remove('active'),
     );
 };
+
+['custom_alert_modal', 'custom_confirm_modal'].forEach(modal_identifier => {
+  document
+    .getElementById(modal_identifier)
+    ?.addEventListener('click', click_event => {
+      if (click_event.target !== click_event.currentTarget) return;
+
+      if (modal_identifier === 'custom_alert_modal') {
+        close_custom_alert();
+      } else {
+        cancel_custom_confirm();
+      }
+    });
+});
+
+document.addEventListener('keydown', keydown_event => {
+  if (keydown_event.key !== 'Escape') return;
+
+  if (
+    document.getElementById('custom_alert_modal')?.classList.contains('active')
+  ) {
+    close_custom_alert();
+  }
+
+  if (
+    document.getElementById('custom_confirm_modal')?.classList.contains('active')
+  ) {
+    cancel_custom_confirm();
+  }
+});
 
 onAuthStateChanged(auth_service_instance, async user => {
   const login_screen = document.getElementById('login_screen');
