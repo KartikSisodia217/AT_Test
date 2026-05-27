@@ -1,9 +1,4 @@
-import {
-  TIMETABLE_DURATION_OPTIONS,
-  TIMETABLE_TIME_OPTIONS,
-  parse_timetable_text_to_entries,
-  reconstruct_grid_from_bboxes 
-} from './timetable-parser.js';
+
 import {
   auth_service_instance,
   google_auth_provider,
@@ -1081,8 +1076,8 @@ window.open_timetable_import_modal = function () {
   pending_timetable_import_entries = [];
   document.getElementById('timetable_image_input').value = '';
   document.getElementById('timetable_ocr_text_input').value = '';
-  
- 
+
+
   const statusEl = document.getElementById('timetable_ocr_status');
   statusEl.innerHTML = `
     Upload a PNG, JPG, or WebP screenshot.
@@ -1093,7 +1088,7 @@ window.open_timetable_import_modal = function () {
       • Ensure columns look somewhat aligned
     </div>
   `;
-  
+
   show_timetable_ocr_step();
   open_interface_modal('timetable_import_modal');
 };
@@ -1117,7 +1112,7 @@ window.run_timetable_image_ocr = async function () {
   try {
     ocr_button.disabled = true;
     status_element.textContent = 'Reading image and mapping layout...';
-    
+
     const ocr_result = await window.Tesseract.recognize(selected_file, 'eng', {
       logger: progress => {
         if (progress.status === 'recognizing text') {
@@ -1127,7 +1122,7 @@ window.run_timetable_image_ocr = async function () {
     });
 
     let extracted_text = '';
-   
+
     if (ocr_result.data && ocr_result.data.words && ocr_result.data.words.length > 0) {
       extracted_text = reconstruct_grid_from_bboxes(ocr_result.data.words);
     } else {
@@ -1210,7 +1205,7 @@ function find_or_create_subject_for_import(subject_code_value) {
     subject_code_text: normalized_subject_code,
     subject_color_hex:
       THEME_COLORS_ARRAY[
-        application_state.enrolled_subjects.length % THEME_COLORS_ARRAY.length
+      application_state.enrolled_subjects.length % THEME_COLORS_ARRAY.length
       ],
     target_percentage: 75,
   };
@@ -1253,7 +1248,7 @@ window.confirm_timetable_import = function () {
     const duplicate_slot = application_state.weekly_schedule_slots.find(
       slot_item =>
         slot_item.parent_subject_identifier ===
-          subject_record.subject_identifier &&
+        subject_record.subject_identifier &&
         slot_item.day_of_week_name === entry_item.day &&
         slot_item.start_time_hour_value === entry_item.startHour,
     );
@@ -1706,7 +1701,7 @@ onAuthStateChanged(auth_service_instance, async user => {
     login_screen.classList.add('hidden');
     main_app.classList.remove('hidden');
 
-   
+
     const safeName = (user.displayName || 'User').split(' ')[0];
     user_welcome_text.innerText = `Welcome, ${safeName}`;
 
