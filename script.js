@@ -238,9 +238,9 @@ function render_attendance_statistics_cards() {
       total_scheduled_hours_count === 0
         ? 0
         : (
-            (total_present_hours_count / total_scheduled_hours_count) *
-            100
-          ).toFixed(1);
+          (total_present_hours_count / total_scheduled_hours_count) *
+          100
+        ).toFixed(1);
     let dynamic_target_text_output = '';
 
     if (total_scheduled_hours_count === 0) {
@@ -251,7 +251,7 @@ function render_attendance_statistics_cards() {
         skippable_lecture_hours_count = Math.floor(
           (total_present_hours_count -
             target_dec * total_scheduled_hours_count) /
-            target_dec,
+          target_dec,
         );
       } else {
         skippable_lecture_hours_count = 999;
@@ -268,7 +268,7 @@ function render_attendance_statistics_cards() {
         required_lecture_hours_count = Math.ceil(
           (target_dec * total_scheduled_hours_count -
             total_present_hours_count) /
-            (1 - target_dec),
+          (1 - target_dec),
         );
         dynamic_target_text_output = `<span style="color: var(--cancelled); font-weight: 600;">⚠️ Need ${required_lecture_hours_count} lecture hrs</span>`;
       } else {
@@ -415,7 +415,7 @@ function render_weekly_calendar_grid() {
     parsed_extra_class_date.setHours(0, 0, 0, 0);
     const calculated_difference_in_days = Math.round(
       (parsed_extra_class_date - application_state.start_of_current_week) /
-        (1000 * 60 * 60 * 24),
+      (1000 * 60 * 60 * 24),
     );
     if (
       calculated_difference_in_days >= 0 &&
@@ -523,7 +523,7 @@ window.handleDateChange = function (selectedDateString) {
 window.navigate_mobile_day = function (day_offset_integer_value) {
   application_state.current_mobile_date_object.setDate(
     application_state.current_mobile_date_object.getDate() +
-      day_offset_integer_value,
+    day_offset_integer_value,
   );
   render_entire_application_interface();
 };
@@ -602,20 +602,22 @@ function render_mobile_day_view(mobile_container) {
     <div class="mobile-day-nav">
       <button class="nav-btn" onclick="navigate_mobile_day(-1)">◀ Prev</button>
       <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0 12px;">
-        <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
-          <h3 style="font-size: 15px; font-weight: 600; color: var(--text); display: flex; align-items: center; margin: 0;">
-              ${formatted_display_date} ${today_indicator_html}
-          </h3>
-          <input 
-            type="date" 
-            onchange="handleDateChange(this.value)"
-            value="application_state.current_mobile_date_object"
-            onclick="this.showPicker()" 
-            style="position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0;" 
-          />
-        </label>
-        ${!is_today ? `<button class="nav-btn" style="padding: 4px 10px; font-size: 11px;" onclick="navigate_mobile_to_today()">Today</button>` : ''}
-      </div>
+  <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+    <h3 style="font-size: 15px; font-weight: 600; color: var(--text); display:flex; align-items:center; margin:0;">
+      ${formatted_display_date} ${today_indicator_html}
+    </h3>
+
+    <input 
+      type="date" 
+      onchange="handleDateChange(this.value)"
+      value="${target_date_string}"
+      onclick="this.showPicker()" 
+      style="position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0;" 
+    />
+  </label>
+
+  ${!is_today ? `<button class="nav-btn" style="padding: 4px 10px; font-size: 11px;" onclick="navigate_mobile_to_today()">Today</button>` : ''}
+</div>
       <button class="nav-btn" onclick="navigate_mobile_day(1)">Next ▶</button>
     </div>
     <div class="mark-day-container" style="padding: 12px 15px; border-bottom: 1px solid var(--border); margin-top: 0;">
@@ -665,7 +667,7 @@ function render_mobile_day_view(mobile_container) {
               <strong style="color: ${parent_subject_data_object.subject_color_hex || 'var(--accent)'}; font-size: 15px;">${parent_subject_data_object.subject_code_text}</strong>
               <span style="font-size: 14px; margin-top: 2px;">${parent_subject_data_object.subject_name_text}</span>
               <span style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">
-                🕒 ${lecture_data_object.start_time_hour_value}:00 - ${lecture_data_object.start_time_hour_value + lecture_data_object.lecture_duration_value}:00
+                ${lecture_data_object.start_time_hour_value}:00 - ${lecture_data_object.start_time_hour_value + lecture_data_object.lecture_duration_value}:00
                 ${lecture_data_object.lecture_type_string === 'extra' ? '<span style="color: var(--accent); margin-left: 4px;">(Extra Class)</span>' : ''}
               </span>
             </div>
@@ -918,7 +920,7 @@ document
           subject_item =>
             subject_item.subject_code_text === entered_subject_code_value &&
             subject_item.subject_identifier !==
-              currently_editing_subject_identifier,
+            currently_editing_subject_identifier,
         )
       ) {
         alert('Subject code must be unique!');
@@ -1052,9 +1054,9 @@ window.delete_scheduled_lecture_instance = function (
         application_state.attendance_records.filter(attendance_item => {
           if (
             attendance_item.parent_subject_identifier ===
-              located_slot_record.parent_subject_identifier &&
+            located_slot_record.parent_subject_identifier &&
             attendance_item.lecture_start_hour ===
-              located_slot_record.start_time_hour_value
+            located_slot_record.start_time_hour_value
           ) {
             const parsed_attendance_date = new Date(
               attendance_item.lecture_date_string + 'T00:00:00',
@@ -1094,11 +1096,11 @@ window.delete_scheduled_lecture_instance = function (
           attendance_item =>
             !(
               attendance_item.parent_subject_identifier ===
-                located_extra_class_record.parent_subject_identifier &&
+              located_extra_class_record.parent_subject_identifier &&
               attendance_item.lecture_date_string ===
-                located_extra_class_record.lecture_date_string &&
+              located_extra_class_record.lecture_date_string &&
               attendance_item.lecture_start_hour ===
-                located_extra_class_record.start_time_hour_value
+              located_extra_class_record.start_time_hour_value
             ),
         );
     }
@@ -1204,7 +1206,7 @@ window.mark_full_day_attendance_bulk = function (
 window.navigate_calendar_weeks = function (week_offset_integer_value) {
   application_state.start_of_current_week.setDate(
     application_state.start_of_current_week.getDate() +
-      week_offset_integer_value * 7,
+    week_offset_integer_value * 7,
   );
   render_entire_application_interface();
 };
