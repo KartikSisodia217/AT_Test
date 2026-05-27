@@ -329,6 +329,15 @@ function render_weekly_calendar_grid() {
   document.getElementById('current_week_display_label').innerText =
     `${month_names_array[application_state.start_of_current_week.getMonth()]} ${application_state.start_of_current_week.getFullYear()}`;
 
+  const desktop_date_selection_input = document.getElementById(
+    'desktop_date_selection',
+  );
+  if (desktop_date_selection_input) {
+    desktop_date_selection_input.value = format_date_to_string_format(
+      application_state.start_of_current_week,
+    );
+  }
+
   calendar_header_container_element.innerHTML = `<div class="day-col-header" style="justify-content: center;">Time</div>`;
   let current_week_dates_array = [];
   for (let iteration_index = 0; iteration_index < 5; iteration_index++) {
@@ -518,6 +527,38 @@ window.handleDateChange = function (selectedDateString) {
   const offset = Math.round(diffTime / 86400000);
 
   navigate_mobile_day(offset);
+};
+
+window.open_desktop_date_picker = function () {
+  if (window.innerWidth <= 1000) return;
+
+  const desktop_date_selection_input = document.getElementById(
+    'desktop_date_selection',
+  );
+  if (!desktop_date_selection_input) return;
+
+  desktop_date_selection_input.value = format_date_to_string_format(
+    application_state.start_of_current_week || new Date(),
+  );
+
+  if (typeof desktop_date_selection_input.showPicker === 'function') {
+    desktop_date_selection_input.showPicker();
+    return;
+  }
+
+  desktop_date_selection_input.click();
+};
+
+window.handleDesktopDateChange = function (selectedDateString) {
+  if (!selectedDateString || window.innerWidth <= 1000) return;
+
+  const [year, month, day] = selectedDateString.split('-').map(Number);
+  const selected_date_object = new Date(year, month - 1, day);
+  if (Number.isNaN(selected_date_object.getTime())) return;
+
+  application_state.start_of_current_week =
+    calculate_monday_of_target_week(selected_date_object);
+  render_entire_application_interface();
 };
 
 window.navigate_mobile_day = function (day_offset_integer_value) {
