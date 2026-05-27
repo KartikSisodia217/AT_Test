@@ -1344,7 +1344,11 @@ function render_timetable_import_preview_rows() {
         if (field_name === 'type') {
           const current_code =
             pending_timetable_import_entries[row_index].subjectCode || '';
-          if (field_value === 'lab' && !/\(L\)$/i.test(current_code)) {
+          if (
+            field_value === 'lab' &&
+            current_code.trim() &&
+            !/\(L\)$/i.test(current_code)
+          ) {
             pending_timetable_import_entries[row_index].subjectCode =
               `${current_code.replace(/\(L\)$/i, '')}(L)`;
           }
