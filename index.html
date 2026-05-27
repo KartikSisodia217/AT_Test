@@ -114,6 +114,7 @@
           </div>
         </div>
         <div style="display: flex; gap: 8px;">
+          <button class="nav-btn" onclick="open_timetable_import_modal()">Import Timetable</button>
           <button class="nav-btn" onclick="open_interface_modal('weekly_slot_modal')">+ Add Weekly Slot</button>
           <button class="nav-btn" onclick="open_interface_modal('extra_class_modal')">+ Add Extra Class</button>
         </div>
@@ -217,6 +218,58 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="timetable_import_modal">
+    <div class="modal-box timetable-import-box">
+      <div class="modal-title">Import Timetable Image</div>
+      <div class="import-step-panel">
+        <div class="form-group">
+          <label>Timetable Screenshot</label>
+          <input type="file" id="timetable_image_input" accept="image/png,image/jpeg,image/webp">
+        </div>
+        <button type="button" class="btn" id="run_timetable_ocr_button" onclick="run_timetable_image_ocr()">Extract Text</button>
+        <div class="ocr-status" id="timetable_ocr_status">Upload a PNG, JPG, or WebP screenshot.</div>
+        <div class="form-group">
+          <label>Extracted Text</label>
+          <textarea id="timetable_ocr_text_input" rows="7" placeholder="OCR text will appear here. You can fix it before parsing."></textarea>
+        </div>
+        <div class="modal-actions compact-actions">
+          <button type="button" class="btn btn-secondary" onclick="close_all_interface_modals()">Cancel</button>
+          <button type="button" class="btn" onclick="parse_timetable_text_for_review()">Parse Preview</button>
+        </div>
+      </div>
+
+      <div class="import-preview-panel hidden" id="timetable_import_preview_panel">
+        <div class="preview-toolbar">
+          <div>
+            <div class="preview-title">Review Parsed Classes</div>
+            <div class="preview-subtitle">Edit anything before import. Labs are tracked as separate subjects.</div>
+          </div>
+          <button type="button" class="nav-btn" onclick="add_blank_timetable_import_row()">+ Row</button>
+        </div>
+        <div class="import-table-wrap">
+          <table class="import-preview-table">
+            <thead>
+              <tr>
+                <th>Subject</th>
+                <th>Type</th>
+                <th>Day</th>
+                <th>Start</th>
+                <th>Hours</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="timetable_import_rows_container"></tbody>
+          </table>
+        </div>
+        <div class="import-note" id="timetable_import_summary_text"></div>
+        <div class="modal-actions compact-actions">
+          <button type="button" class="btn btn-secondary" onclick="show_timetable_ocr_step()">Back</button>
+          <button type="button" class="btn" onclick="confirm_timetable_import()">Import Confirmed Timetable</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="custom_alert_modal" role="dialog" aria-modal="true" aria-labelledby="custom_alert_title">
     <div class="modal-box custom-dialog-box">
       <div class="modal-title" id="custom_alert_title">Notice</div>
@@ -238,6 +291,7 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script type="module" src="script.js"></script>
 </body>
 
