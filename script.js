@@ -716,7 +716,7 @@ function render_mobile_week_view(mobile_container) {
     </div>
     <div class="mobile-day-nav">
       <button class="nav-btn" onclick="navigate_calendar_weeks(-1)">◀ Prev</button>
-      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0 12px;">
         <div style="display: flex; align-items: center; gap: 4px;">
           <h3 style="font-size: 14px; font-weight: 600; color: var(--text);">Week of ${week_start_label}</h3>
           
