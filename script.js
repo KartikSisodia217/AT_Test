@@ -4,8 +4,10 @@ import {
   firestore_database_instance,
 } from './firebase-config.js';
 import {
+  browserLocalPersistence,
   signInWithPopup,
   onAuthStateChanged,
+  setPersistence,
   signOut,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import {
@@ -109,6 +111,7 @@ window.handle_auth_click = async function () {
     loading_text.innerText = 'Signing in...';
     loading_overlay.classList.add('active');
     try {
+      await setPersistence(auth_service_instance, browserLocalPersistence);
       await signInWithPopup(auth_service_instance, google_auth_provider);
     } catch (e) {
       console.error(e);
