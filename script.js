@@ -601,7 +601,7 @@ function render_mobile_day_view(mobile_container) {
     </div>
     <div class="mobile-day-nav">
       <button class="nav-btn" onclick="navigate_mobile_day(-1)">◀ Prev</button>
-      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0 12px;">
         <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
           <h3 style="font-size: 15px; font-weight: 600; color: var(--text); display: flex; align-items: center; margin: 0;">
               ${formatted_display_date} ${today_indicator_html}
