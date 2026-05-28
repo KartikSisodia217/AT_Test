@@ -23,7 +23,7 @@ let auth_timeout_id = setTimeout(() => {
     const loading_overlay = document.getElementById('auth_loading_overlay');
     const login_screen = document.getElementById('login_screen');
     const main_app = document.getElementById('main_app');
-    
+
     if (loading_overlay) loading_overlay.classList.remove('active');
     if (login_screen) login_screen.classList.remove('hidden');
     if (main_app) main_app.classList.add('hidden');
@@ -341,6 +341,9 @@ function render_weekly_calendar_grid() {
     'November',
     'December',
   ];
+  if (!application_state.start_of_current_week) {
+    application_state.start_of_current_week = get_start_of_week(new Date());
+  }
   document.getElementById('current_week_display_label').innerText =
     `${month_names_array[application_state.start_of_current_week.getMonth()]} ${application_state.start_of_current_week.getFullYear()}`;
 
