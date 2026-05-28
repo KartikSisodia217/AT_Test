@@ -1,4 +1,3 @@
-
 import {
   auth_service_instance,
   google_auth_provider,
@@ -16,12 +15,6 @@ import {
   getDoc,
   setDoc,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-import {
-  TIMETABLE_DURATION_OPTIONS,
-  TIMETABLE_TIME_OPTIONS,
-  parse_timetable_text_to_entries,
-  reconstruct_grid_from_bboxes
-} from './timetable-parser.js';
 
 const application_state = {
   enrolled_subjects: [],
@@ -35,7 +28,6 @@ const application_state = {
 
 let currently_editing_subject_identifier = null;
 let current_logged_in_user = null;
-let pending_timetable_import_entries = [];
 
 const WEEK_DAYS_ARRAY = [
   'Monday',
@@ -162,15 +154,6 @@ function format_date_to_string_format(date_object_to_format) {
 
 function generate_unique_random_identifier(identifier_prefix_string) {
   return `${identifier_prefix_string}_${Math.random().toString(36).substr(2, 9)}`;
-}
-
-function escape_html_for_display(value_to_escape) {
-  return String(value_to_escape ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
 }
 
 function retrieve_subject_object_by_identifier(target_subject_identifier) {
@@ -543,6 +526,7 @@ window.handleDateChange = function (selectedDateString) {
 
   const diffTime = selectedDate - currDate;
 
+  // 1 day = 24*60*60*1000 = 86400000 ms
   const offset = Math.round(diffTime / 86400000);
 
   navigate_mobile_day(offset);
@@ -949,331 +933,6 @@ window.confirm_custom_dialog = function () {
   pending_custom_confirm_callback = null;
   document.getElementById('custom_confirm_modal').classList.remove('active');
   if (callback_to_execute) callback_to_execute();
-};
-
-function render_timetable_import_preview_rows() {
-  const rows_container_element = document.getElementById(
-    'timetable_import_rows_container',
-  );
-  const summary_element = document.getElementById(
-    'timetable_import_summary_text',
-  );
-
-  if (!rows_container_element || !summary_element) return;
-
-  rows_container_element.innerHTML = pending_timetable_import_entries
-    .map((entry_item, row_index) => {
-      const day_options = WEEK_DAYS_ARRAY.map(
-        day_name =>
-          `<option value="${day_name}" ${entry_item.day === day_name ? 'selected' : ''}>${day_name}</option>`,
-      ).join('');
-      const time_options = TIMETABLE_TIME_OPTIONS.map(
-        hour_value =>
-          `<option value="${hour_value}" ${entry_item.startHour === hour_value ? 'selected' : ''}>${String(hour_value).padStart(2, '0')}:00</option>`,
-      ).join('');
-      const duration_options = TIMETABLE_DURATION_OPTIONS.map(
-        duration_value =>
-          `<option value="${duration_value}" ${entry_item.duration === duration_value ? 'selected' : ''}>${duration_value}</option>`,
-      ).join('');
-
-      return `
-        <tr data-import-row="${row_index}">
-          <td>
-            <input type="text" class="import-row-input" data-field="subjectCode" value="${escape_html_for_display(entry_item.subjectCode)}">
-          </td>
-          <td>
-            <select class="import-row-input" data-field="type">
-              <option value="theory" ${entry_item.type === 'theory' ? 'selected' : ''}>Theory</option>
-              <option value="lab" ${entry_item.type === 'lab' ? 'selected' : ''}>Lab</option>
-            </select>
-          </td>
-          <td>
-            <select class="import-row-input" data-field="day">${day_options}</select>
-          </td>
-          <td>
-            <select class="import-row-input" data-field="startHour">${time_options}</select>
-          </td>
-          <td>
-            <select class="import-row-input" data-field="duration">${duration_options}</select>
-          </td>
-          <td>
-            <button type="button" class="icon-btn delete-btn import-delete-btn" title="Delete row">x</button>
-          </td>
-        </tr>`;
-    })
-    .join('');
-
-  rows_container_element
-    .querySelectorAll('.import-row-input')
-    .forEach(input_element => {
-      input_element.addEventListener('change', event => {
-        const row_element = event.target.closest('[data-import-row]');
-        const row_index = parseInt(row_element.dataset.importRow, 10);
-        const field_name = event.target.dataset.field;
-        let field_value = event.target.value;
-
-        if (field_name === 'startHour' || field_name === 'duration') {
-          field_value = parseInt(field_value, 10);
-        }
-
-        if (field_name === 'type') {
-          const current_code =
-            pending_timetable_import_entries[row_index].subjectCode || '';
-          if (
-            field_value === 'lab' &&
-            current_code.trim() &&
-            !/\(L\)$/i.test(current_code)
-          ) {
-            pending_timetable_import_entries[row_index].subjectCode =
-              `${current_code.replace(/\(L\)$/i, '')}(L)`;
-          }
-          if (field_value === 'theory') {
-            pending_timetable_import_entries[row_index].subjectCode =
-              current_code.replace(/\(L\)$/i, '');
-          }
-        }
-
-        pending_timetable_import_entries[row_index][field_name] = field_value;
-        if (field_name === 'type') render_timetable_import_preview_rows();
-      });
-    });
-
-  rows_container_element
-    .querySelectorAll('.import-delete-btn')
-    .forEach(delete_button => {
-      delete_button.addEventListener('click', event => {
-        const row_element = event.target.closest('[data-import-row]');
-        const row_index = parseInt(row_element.dataset.importRow, 10);
-        pending_timetable_import_entries.splice(row_index, 1);
-        render_timetable_import_preview_rows();
-      });
-    });
-
-  const lab_count = pending_timetable_import_entries.filter(
-    entry_item => entry_item.type === 'lab',
-  ).length;
-  summary_element.textContent = `${pending_timetable_import_entries.length} class slots ready. ${lab_count} lab slot${lab_count === 1 ? '' : 's'} will be imported as separate (L) subjects.`;
-}
-
-function show_timetable_preview_step() {
-  document.querySelector('#timetable_import_modal .import-step-panel').classList.add('hidden');
-  document
-    .getElementById('timetable_import_preview_panel')
-    .classList.remove('hidden');
-  render_timetable_import_preview_rows();
-}
-
-window.show_timetable_ocr_step = function () {
-  document
-    .querySelector('#timetable_import_modal .import-step-panel')
-    .classList.remove('hidden');
-  document
-    .getElementById('timetable_import_preview_panel')
-    .classList.add('hidden');
-};
-
-window.open_timetable_import_modal = function () {
-  pending_timetable_import_entries = [];
-  document.getElementById('timetable_image_input').value = '';
-  document.getElementById('timetable_ocr_text_input').value = '';
-
-
-  const statusEl = document.getElementById('timetable_ocr_status');
-  statusEl.innerHTML = `
-    Upload a PNG, JPG, or WebP screenshot.
-    <div style="margin-top: 10px; padding: 8px; background: rgba(255, 152, 0, 0.1); border-left: 3px solid #ff9800; text-align: left; font-size: 13px;">
-      <b>⚠️ Fix OCR mistakes before parsing:</b><br>
-      • Remove spaces in codes (<code>SE 104</code> → <code>SE104</code>)<br>
-      • Fix letter/number confusion (<code>coi02</code> → <code>CO102</code>)<br>
-      • Ensure columns look somewhat aligned
-    </div>
-  `;
-
-  show_timetable_ocr_step();
-  open_interface_modal('timetable_import_modal');
-};
-
-window.run_timetable_image_ocr = async function () {
-  const file_input = document.getElementById('timetable_image_input');
-  const selected_file = file_input.files?.[0];
-  const status_element = document.getElementById('timetable_ocr_status');
-  const ocr_button = document.getElementById('run_timetable_ocr_button');
-
-  if (!selected_file) {
-    show_custom_alert('Please choose a timetable image first.');
-    return;
-  }
-
-  if (!window.Tesseract) {
-    show_custom_alert('OCR library missing. Paste text manually.');
-    return;
-  }
-
-  try {
-    ocr_button.disabled = true;
-    status_element.textContent = 'Reading image and mapping layout...';
-
-    const ocr_result = await window.Tesseract.recognize(selected_file, 'eng', {
-      logger: progress => {
-        if (progress.status === 'recognizing text') {
-          status_element.textContent = `Analyzing structure... ${Math.round(progress.progress * 100)}%`;
-        }
-      },
-    });
-
-    let extracted_text = '';
-
-    if (ocr_result.data && ocr_result.data.words && ocr_result.data.words.length > 0) {
-      extracted_text = reconstruct_grid_from_bboxes(ocr_result.data.words);
-    } else {
-      extracted_text = ocr_result.data.text || '';
-    }
-
-    document.getElementById('timetable_ocr_text_input').value = extracted_text;
-    status_element.innerHTML = '<span style="color:var(--present);">✅ OCR Complete.</span> Review the text below and fix mistakes before hitting Parse.';
-  } catch (error) {
-    console.error(error);
-    status_element.textContent = 'OCR failed. You can paste text manually.';
-    show_custom_alert('OCR failed. Try a clearer image.');
-  } finally {
-    ocr_button.disabled = false;
-  }
-};
-window.parse_timetable_text_for_review = function () {
-  const timetable_text_value = document
-    .getElementById('timetable_ocr_text_input')
-    .value.trim();
-
-  if (!timetable_text_value) {
-    show_custom_alert('Add OCR text before parsing the timetable.');
-    return;
-  }
-
-  pending_timetable_import_entries = parse_timetable_text_to_entries(
-    timetable_text_value,
-    {
-      knownSubjectCodes: application_state.enrolled_subjects.map(
-        subject_item => subject_item.subject_code_text,
-      ),
-    },
-  );
-
-  if (pending_timetable_import_entries.length === 0) {
-    show_custom_alert(
-      'No classes were detected. Fix the OCR text or add rows manually in the preview.',
-    );
-    pending_timetable_import_entries = [
-      {
-        subjectCode: '',
-        type: 'theory',
-        day: 'Monday',
-        startHour: 8,
-        duration: 1,
-        rawText: '',
-      },
-    ];
-  }
-
-  show_timetable_preview_step();
-};
-
-window.add_blank_timetable_import_row = function () {
-  pending_timetable_import_entries.push({
-    subjectCode: '',
-    type: 'theory',
-    day: 'Monday',
-    startHour: 8,
-    duration: 1,
-    rawText: '',
-  });
-  render_timetable_import_preview_rows();
-};
-
-function find_or_create_subject_for_import(subject_code_value) {
-  const normalized_subject_code = String(subject_code_value || '').trim();
-  let existing_subject = application_state.enrolled_subjects.find(
-    subject_item =>
-      subject_item.subject_code_text.toLowerCase() ===
-      normalized_subject_code.toLowerCase(),
-  );
-
-  if (existing_subject) return existing_subject;
-
-  existing_subject = {
-    subject_identifier: generate_unique_random_identifier('sub'),
-    subject_name_text: normalized_subject_code,
-    subject_code_text: normalized_subject_code,
-    subject_color_hex:
-      THEME_COLORS_ARRAY[
-      application_state.enrolled_subjects.length % THEME_COLORS_ARRAY.length
-      ],
-    target_percentage: 75,
-  };
-  application_state.enrolled_subjects.push(existing_subject);
-  return existing_subject;
-}
-
-window.confirm_timetable_import = function () {
-  const valid_entries = pending_timetable_import_entries
-    .map(entry_item => ({
-      subjectCode: String(entry_item.subjectCode || '').trim(),
-      type: entry_item.type === 'lab' ? 'lab' : 'theory',
-      day: WEEK_DAYS_ARRAY.includes(entry_item.day) ? entry_item.day : 'Monday',
-      startHour: TIMETABLE_TIME_OPTIONS.includes(entry_item.startHour)
-        ? entry_item.startHour
-        : 8,
-      duration: TIMETABLE_DURATION_OPTIONS.includes(entry_item.duration)
-        ? entry_item.duration
-        : 1,
-    }))
-    .filter(entry_item => entry_item.subjectCode);
-
-  if (valid_entries.length === 0) {
-    show_custom_alert('Add at least one valid subject before importing.');
-    return;
-  }
-
-  let imported_slot_count = 0;
-  let skipped_duplicate_count = 0;
-
-  valid_entries.forEach(entry_item => {
-    const base_subject_code = entry_item.subjectCode.replace(/\(L\)$/i, '');
-    const adjusted_subject_code =
-      entry_item.type === 'lab'
-        ? `${base_subject_code}(L)`
-        : base_subject_code;
-    const subject_record = find_or_create_subject_for_import(
-      adjusted_subject_code,
-    );
-    const duplicate_slot = application_state.weekly_schedule_slots.find(
-      slot_item =>
-        slot_item.parent_subject_identifier ===
-        subject_record.subject_identifier &&
-        slot_item.day_of_week_name === entry_item.day &&
-        slot_item.start_time_hour_value === entry_item.startHour,
-    );
-
-    if (duplicate_slot) {
-      skipped_duplicate_count++;
-      return;
-    }
-
-    application_state.weekly_schedule_slots.push({
-      slot_identifier: generate_unique_random_identifier('slot'),
-      parent_subject_identifier: subject_record.subject_identifier,
-      day_of_week_name: entry_item.day,
-      start_time_hour_value: entry_item.startHour,
-      lecture_duration_value: entry_item.duration,
-    });
-    imported_slot_count++;
-  });
-
-  save_current_application_data();
-  render_entire_application_interface();
-  close_all_interface_modals();
-  show_custom_alert(
-    `Imported ${imported_slot_count} class slot${imported_slot_count === 1 ? '' : 's'}.${skipped_duplicate_count ? ` Skipped ${skipped_duplicate_count} duplicate slot${skipped_duplicate_count === 1 ? '' : 's'}.` : ''}`,
-  );
 };
 
 window.handle_empty_cell_click = function (day_name, hour_value) {
@@ -1701,19 +1360,21 @@ onAuthStateChanged(auth_service_instance, async user => {
     login_screen.classList.add('hidden');
     main_app.classList.remove('hidden');
 
+    user_welcome_text.innerText = `Welcome, ${user.displayName.split(' ')[0]}`;
 
-    const safeName = (user.displayName || 'User').split(' ')[0];
-    user_welcome_text.innerText = `Welcome, ${safeName}`;
-
-    application_state.start_of_current_week = calculate_monday_of_target_week(new Date());
+    application_state.start_of_current_week = calculate_monday_of_target_week(
+      new Date(),
+    );
     application_state.current_mobile_date_object = new Date();
     initialize_color_selection_palette();
 
     await load_saved_application_data();
   } else {
     current_logged_in_user = null;
+
     login_screen.classList.remove('hidden');
     main_app.classList.add('hidden');
+
     reset_application_state_to_default();
   }
 
