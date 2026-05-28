@@ -718,7 +718,7 @@ body {
   justify-content: center;
   cursor: pointer;
   margin-left: auto;
- 
+  
   transition: all 0.2s, transform 0.3s;
 }
 
@@ -757,7 +757,7 @@ body {
     display: none;
   }
 
- 
+  
   .desktop-nav-controls {
     display: none !important;
   }

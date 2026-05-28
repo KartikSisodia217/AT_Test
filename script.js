@@ -16,6 +16,20 @@ import {
   setDoc,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
+let is_initial_auth_resolved = false;
+let auth_timeout_id = setTimeout(() => {
+  if (!is_initial_auth_resolved) {
+    is_initial_auth_resolved = true;
+    const loading_overlay = document.getElementById('auth_loading_overlay');
+    const login_screen = document.getElementById('login_screen');
+    const main_app = document.getElementById('main_app');
+    
+    if (loading_overlay) loading_overlay.classList.remove('active');
+    if (login_screen) login_screen.classList.remove('hidden');
+    if (main_app) main_app.classList.add('hidden');
+  }
+}, 5000);
+
 const application_state = {
   enrolled_subjects: [],
   weekly_schedule_slots: [],
@@ -104,7 +118,6 @@ window.handle_auth_click = async function () {
     try {
       await signOut(auth_service_instance);
     } catch (e) {
-      console.error(e);
       loading_overlay.classList.remove('active');
     }
   } else {
@@ -114,7 +127,6 @@ window.handle_auth_click = async function () {
       await setPersistence(auth_service_instance, browserLocalPersistence);
       await signInWithPopup(auth_service_instance, google_auth_provider);
     } catch (e) {
-      console.error(e);
       loading_overlay.classList.remove('active');
     }
   }
@@ -525,8 +537,6 @@ window.handleDateChange = function (selectedDateString) {
   currDate.setHours(0, 0, 0, 0);
 
   const diffTime = selectedDate - currDate;
-
-  // 1 day = 24*60*60*1000 = 86400000 ms
   const offset = Math.round(diffTime / 86400000);
 
   navigate_mobile_day(offset);
@@ -1349,6 +1359,11 @@ document.addEventListener('keydown', keydown_event => {
 });
 
 onAuthStateChanged(auth_service_instance, async user => {
+  if (!is_initial_auth_resolved) {
+    is_initial_auth_resolved = true;
+    clearTimeout(auth_timeout_id);
+  }
+
   const login_screen = document.getElementById('login_screen');
   const main_app = document.getElementById('main_app');
   const user_welcome_text = document.getElementById('user_welcome_text');
