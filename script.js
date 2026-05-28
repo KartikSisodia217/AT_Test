@@ -342,7 +342,7 @@ function render_weekly_calendar_grid() {
     'December',
   ];
   if (!application_state.start_of_current_week) {
-    application_state.start_of_current_week = get_start_of_week(new Date());
+    application_state.start_of_current_week = new Date();
   }
   document.getElementById('current_week_display_label').innerText =
     `${month_names_array[application_state.start_of_current_week.getMonth()]} ${application_state.start_of_current_week.getFullYear()}`;
