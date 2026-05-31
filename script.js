@@ -598,7 +598,7 @@ function render_attendance_statistics_cards() {
 
             if (diff_days < 0) {
               overdue_count++;
-            } else if (diff_days >= 0 && diff_days <= 2) {
+            } else if (diff_days >= 0 && diff_days <= 7) {
               due_soon_count++;
             }
           }
