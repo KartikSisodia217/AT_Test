@@ -869,6 +869,10 @@ body {
   .sidebar.collapsed .logout-icon {
     margin-right: 0 !important;
   }
+
+  .mobile-only-setting {
+    display: none !important;
+  }
 }
 
 .hidden {
