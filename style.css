@@ -835,6 +835,7 @@ body {
     justify-content: center;
     border-left-width: 2px !important;
     width: 100%;
+    overflow: hidden;
   }
 
   .sidebar.collapsed .subject-header {
