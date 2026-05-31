@@ -12,8 +12,10 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import {
   doc,
-  getDoc,
   setDoc,
+  deleteDoc,
+  collection,
+  onSnapshot
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 let is_initial_auth_resolved = false;
@@ -44,6 +46,7 @@ const application_state = {
 let currently_editing_subject_identifier = null;
 let currently_editing_assignment_identifier = null;
 let current_logged_in_user = null;
+let firestore_unsubscribers = [];
 
 const WEEK_DAYS_ARRAY = [
   'Monday',
@@ -65,52 +68,32 @@ const THEME_COLORS_ARRAY = [
   '#00cec9',
 ];
 
-async function load_saved_application_data() {
+function setup_firestore_listeners() {
   if (!current_logged_in_user) return;
+  const uid = current_logged_in_user.uid;
 
-  const user_doc_ref = doc(
-    firestore_database_instance,
-    'users',
-    current_logged_in_user.uid,
-  );
-  const document_snapshot = await getDoc(user_doc_ref);
+  const collections = [
+    { name: 'subjects', stateKey: 'enrolled_subjects' },
+    { name: 'weekly_slots', stateKey: 'weekly_schedule_slots' },
+    { name: 'extra_classes', stateKey: 'additional_extra_classes' },
+    { name: 'attendance_records', stateKey: 'attendance_records' },
+    { name: 'assignments', stateKey: 'assignments' }
+  ];
 
-  if (document_snapshot.exists()) {
-    const cloud_data = document_snapshot.data();
-    application_state.enrolled_subjects = cloud_data.enrolled_subjects || [];
-    application_state.weekly_schedule_slots =
-      cloud_data.weekly_schedule_slots || [];
-    application_state.additional_extra_classes =
-      cloud_data.additional_extra_classes || [];
-    application_state.attendance_records = cloud_data.attendance_records || [];
-    application_state.assignments = cloud_data.assignments || [];
-  } else {
-    save_current_application_data();
-  }
-  render_entire_application_interface();
-  render_assignments();
-  setTimeout(scroll_interface_to_current_time_slot, 100);
+  collections.forEach(col => {
+    const colRef = collection(firestore_database_instance, `users/${uid}/${col.name}`);
+    const unsub = onSnapshot(colRef, (snapshot) => {
+      application_state[col.stateKey] = snapshot.docs.map(doc => doc.data());
+      render_entire_application_interface();
+      render_assignments();
+    });
+    firestore_unsubscribers.push(unsub);
+  });
 }
 
-function save_current_application_data() {
-  if (!current_logged_in_user) return;
-
-  const user_doc_ref = doc(
-    firestore_database_instance,
-    'users',
-    current_logged_in_user.uid,
-  );
-  setDoc(
-    user_doc_ref,
-    {
-      enrolled_subjects: application_state.enrolled_subjects,
-      weekly_schedule_slots: application_state.weekly_schedule_slots,
-      additional_extra_classes: application_state.additional_extra_classes,
-      attendance_records: application_state.attendance_records,
-      assignments: application_state.assignments,
-    },
-    { merge: true },
-  );
+function clear_firestore_listeners() {
+  firestore_unsubscribers.forEach(unsub => unsub());
+  firestore_unsubscribers = [];
 }
 
 window.handle_auth_click = async function () {
@@ -138,6 +121,7 @@ window.handle_auth_click = async function () {
 };
 
 function reset_application_state_to_default() {
+  clear_firestore_listeners();
   application_state.enrolled_subjects = [];
   application_state.weekly_schedule_slots = [];
   application_state.additional_extra_classes = [];
@@ -415,10 +399,8 @@ window.render_assignments = function () {
 window.toggle_assignment_status = function (assignment_identifier) {
   const assignment = application_state.assignments.find(a => a.assignment_identifier === assignment_identifier);
   if (assignment) {
-    assignment.completion_status = assignment.completion_status === 'Pending' ? 'Completed' : 'Pending';
-    save_current_application_data();
-    render_assignments();
-    render_attendance_statistics_cards();
+    const new_status = assignment.completion_status === 'Pending' ? 'Completed' : 'Pending';
+    setDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/assignments/${assignment_identifier}`), { ...assignment, completion_status: new_status }, { merge: true });
   }
 };
 
@@ -426,10 +408,7 @@ window.delete_assignment = function (assignment_identifier) {
   show_custom_confirm(
     'Delete this assignment? This action cannot be undone.',
     () => {
-      application_state.assignments = application_state.assignments.filter(a => a.assignment_identifier !== assignment_identifier);
-      save_current_application_data();
-      render_assignments();
-      render_attendance_statistics_cards();
+      deleteDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/assignments/${assignment_identifier}`));
     }
   );
 };
@@ -471,14 +450,18 @@ document.getElementById('assignment_input_form').addEventListener('submit', form
   if (currently_editing_assignment_identifier) {
     const assignment = application_state.assignments.find(a => a.assignment_identifier === currently_editing_assignment_identifier);
     if (assignment) {
-      assignment.assignment_name = name;
-      assignment.parent_subject_identifier = subject;
-      assignment.priority_level = priority;
-      assignment.due_date_string = due_date;
+      setDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/assignments/${currently_editing_assignment_identifier}`), {
+        ...assignment,
+        assignment_name: name,
+        parent_subject_identifier: subject,
+        priority_level: priority,
+        due_date_string: due_date
+      }, { merge: true });
     }
   } else {
-    application_state.assignments.push({
-      assignment_identifier: generate_unique_random_identifier('asn'),
+    const new_id = generate_unique_random_identifier('asn');
+    setDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/assignments/${new_id}`), {
+      assignment_identifier: new_id,
       assignment_name: name,
       parent_subject_identifier: subject,
       priority_level: priority,
@@ -489,9 +472,6 @@ document.getElementById('assignment_input_form').addEventListener('submit', form
     });
   }
 
-  save_current_application_data();
-  render_assignments();
-  render_attendance_statistics_cards();
   close_all_interface_modals();
 });
 
@@ -1372,10 +1352,13 @@ document
       const subject_to_update = retrieve_subject_object_by_identifier(
         currently_editing_subject_identifier,
       );
-      subject_to_update.subject_name_text = entered_subject_name_value;
-      subject_to_update.subject_code_text = entered_subject_code_value;
-      subject_to_update.subject_color_hex = selected_subject_color_value;
-      subject_to_update.target_percentage = entered_target_percentage;
+      setDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/subjects/${currently_editing_subject_identifier}`), {
+        ...subject_to_update,
+        subject_name_text: entered_subject_name_value,
+        subject_code_text: entered_subject_code_value,
+        subject_color_hex: selected_subject_color_value,
+        target_percentage: entered_target_percentage
+      }, { merge: true });
     } else {
       if (
         application_state.enrolled_subjects.find(
@@ -1386,17 +1369,15 @@ document
         show_custom_alert('Subject code must be unique!');
         return;
       }
-      application_state.enrolled_subjects.push({
-        subject_identifier: generate_unique_random_identifier('sub'),
+      const new_id = generate_unique_random_identifier('sub');
+      setDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/subjects/${new_id}`), {
+        subject_identifier: new_id,
         subject_name_text: entered_subject_name_value,
         subject_code_text: entered_subject_code_value,
         subject_color_hex: selected_subject_color_value,
         target_percentage: entered_target_percentage,
       });
     }
-
-    save_current_application_data();
-    render_entire_application_interface();
     close_all_interface_modals();
   });
 
@@ -1404,36 +1385,28 @@ window.delete_selected_subject_data = function (target_subject_identifier) {
   show_custom_confirm(
     'Delete subject? This will remove all associated slots, extra classes, assignments, and attendance.',
     () => {
-      application_state.enrolled_subjects =
-        application_state.enrolled_subjects.filter(
-          subject_item =>
-            subject_item.subject_identifier !== target_subject_identifier,
-        );
-      application_state.weekly_schedule_slots =
-        application_state.weekly_schedule_slots.filter(
-          slot_item =>
-            slot_item.parent_subject_identifier !== target_subject_identifier,
-        );
-      application_state.additional_extra_classes =
-        application_state.additional_extra_classes.filter(
-          extra_class_item =>
-            extra_class_item.parent_subject_identifier !==
-            target_subject_identifier,
-        );
-      application_state.attendance_records =
-        application_state.attendance_records.filter(
-          attendance_item =>
-            attendance_item.parent_subject_identifier !==
-            target_subject_identifier,
-        );
-      application_state.assignments =
-        application_state.assignments.filter(
-          assignment_item =>
-            assignment_item.parent_subject_identifier !==
-            target_subject_identifier
-        );
-      save_current_application_data();
-      render_entire_application_interface();
+      deleteDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/subjects/${target_subject_identifier}`));
+
+      application_state.weekly_schedule_slots.filter(
+        slot_item => slot_item.parent_subject_identifier === target_subject_identifier
+      ).forEach(slot_item => {
+        deleteDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/weekly_slots/${slot_item.slot_identifier}`));
+      });
+      application_state.additional_extra_classes.filter(
+        extra_class_item => extra_class_item.parent_subject_identifier === target_subject_identifier
+      ).forEach(extra_class_item => {
+        deleteDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/extra_classes/${extra_class_item.extra_class_identifier}`));
+      });
+      application_state.attendance_records.filter(
+        attendance_item => attendance_item.parent_subject_identifier === target_subject_identifier
+      ).forEach(attendance_item => {
+        deleteDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/attendance_records/${attendance_item.attendance_identifier}`));
+      });
+      application_state.assignments.filter(
+        assignment_item => assignment_item.parent_subject_identifier === target_subject_identifier
+      ).forEach(assignment_item => {
+        deleteDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/assignments/${assignment_item.assignment_identifier}`));
+      });
     },
   );
 };
@@ -1442,21 +1415,14 @@ document
   .getElementById('weekly_slot_form')
   .addEventListener('submit', form_submit_event => {
     form_submit_event.preventDefault();
-    application_state.weekly_schedule_slots.push({
-      slot_identifier: generate_unique_random_identifier('slot'),
-      parent_subject_identifier: document.getElementById(
-        'slot_subject_selection',
-      ).value,
+    const new_id = generate_unique_random_identifier('slot');
+    setDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/weekly_slots/${new_id}`), {
+      slot_identifier: new_id,
+      parent_subject_identifier: document.getElementById('slot_subject_selection').value,
       day_of_week_name: document.getElementById('slot_day_selection').value,
-      start_time_hour_value: parseInt(
-        document.getElementById('slot_start_time_selection').value,
-      ),
-      lecture_duration_value: parseInt(
-        document.getElementById('slot_duration_selection').value,
-      ),
+      start_time_hour_value: parseInt(document.getElementById('slot_start_time_selection').value),
+      lecture_duration_value: parseInt(document.getElementById('slot_duration_selection').value),
     });
-    save_current_application_data();
-    render_entire_application_interface();
     close_all_interface_modals();
   });
 
@@ -1464,22 +1430,14 @@ document
   .getElementById('extra_class_input_form')
   .addEventListener('submit', form_submit_event => {
     form_submit_event.preventDefault();
-    application_state.additional_extra_classes.push({
-      extra_class_identifier: generate_unique_random_identifier('extra'),
-      parent_subject_identifier: document.getElementById(
-        'extra_subject_selection',
-      ).value,
-      lecture_date_string: document.getElementById('extra_date_selection')
-        .value,
-      start_time_hour_value: parseInt(
-        document.getElementById('extra_start_time_selection').value,
-      ),
-      lecture_duration_value: parseInt(
-        document.getElementById('extra_duration_selection').value,
-      ),
+    const new_id = generate_unique_random_identifier('extra');
+    setDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/extra_classes/${new_id}`), {
+      extra_class_identifier: new_id,
+      parent_subject_identifier: document.getElementById('extra_subject_selection').value,
+      lecture_date_string: document.getElementById('extra_date_selection').value,
+      start_time_hour_value: parseInt(document.getElementById('extra_start_time_selection').value),
+      lecture_duration_value: parseInt(document.getElementById('extra_duration_selection').value),
     });
-    save_current_application_data();
-    render_entire_application_interface();
     close_all_interface_modals();
   });
 
@@ -1495,40 +1453,35 @@ window.delete_scheduled_lecture_instance = function (
           slot_item => slot_item.slot_identifier === target_lecture_identifier,
         );
         if (located_slot_record) {
-          application_state.attendance_records =
-            application_state.attendance_records.filter(attendance_item => {
+          application_state.attendance_records.forEach(attendance_item => {
+            if (
+              attendance_item.parent_subject_identifier ===
+              located_slot_record.parent_subject_identifier &&
+              attendance_item.lecture_start_hour ===
+              located_slot_record.start_time_hour_value
+            ) {
+              const parsed_attendance_date = new Date(
+                attendance_item.lecture_date_string + 'T00:00:00',
+              );
+              const derived_day_name_string = [
+                'Sunday',
+                'Monday',
+                'Tuesday',
+                'Wednesday',
+                'Thursday',
+                'Friday',
+                'Saturday',
+              ][parsed_attendance_date.getDay()];
               if (
-                attendance_item.parent_subject_identifier ===
-                located_slot_record.parent_subject_identifier &&
-                attendance_item.lecture_start_hour ===
-                located_slot_record.start_time_hour_value
+                derived_day_name_string ===
+                located_slot_record.day_of_week_name
               ) {
-                const parsed_attendance_date = new Date(
-                  attendance_item.lecture_date_string + 'T00:00:00',
-                );
-                const derived_day_name_string = [
-                  'Sunday',
-                  'Monday',
-                  'Tuesday',
-                  'Wednesday',
-                  'Thursday',
-                  'Friday',
-                  'Saturday',
-                ][parsed_attendance_date.getDay()];
-                if (
-                  derived_day_name_string ===
-                  located_slot_record.day_of_week_name
-                )
-                  return false;
+                deleteDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/attendance_records/${attendance_item.attendance_identifier}`));
               }
-              return true;
-            });
+            }
+          });
         }
-        application_state.weekly_schedule_slots =
-          application_state.weekly_schedule_slots.filter(
-            slot_item =>
-              slot_item.slot_identifier !== target_lecture_identifier,
-          );
+        deleteDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/weekly_slots/${target_lecture_identifier}`));
       }
 
       if (lecture_type_string_value === 'extra') {
@@ -1539,28 +1492,21 @@ window.delete_scheduled_lecture_instance = function (
               target_lecture_identifier,
           );
         if (located_extra_class_record) {
-          application_state.attendance_records =
-            application_state.attendance_records.filter(
-              attendance_item =>
-                !(
-                  attendance_item.parent_subject_identifier ===
-                  located_extra_class_record.parent_subject_identifier &&
-                  attendance_item.lecture_date_string ===
-                  located_extra_class_record.lecture_date_string &&
-                  attendance_item.lecture_start_hour ===
-                  located_extra_class_record.start_time_hour_value
-                ),
-            );
+          application_state.attendance_records.forEach(attendance_item => {
+            if (
+              attendance_item.parent_subject_identifier ===
+              located_extra_class_record.parent_subject_identifier &&
+              attendance_item.lecture_date_string ===
+              located_extra_class_record.lecture_date_string &&
+              attendance_item.lecture_start_hour ===
+              located_extra_class_record.start_time_hour_value
+            ) {
+              deleteDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/attendance_records/${attendance_item.attendance_identifier}`));
+            }
+          });
         }
-        application_state.additional_extra_classes =
-          application_state.additional_extra_classes.filter(
-            extra_class_item =>
-              extra_class_item.extra_class_identifier !==
-              target_lecture_identifier,
-          );
+        deleteDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/extra_classes/${target_lecture_identifier}`));
       }
-      save_current_application_data();
-      render_entire_application_interface();
     },
   );
 };
@@ -1578,27 +1524,28 @@ window.mark_specific_lecture_attendance_bulk = function (
       attendance_item.attendance_identifier === target_attendance_identifier,
   );
 
+  let new_status_array = new Array(target_total_hours_duration).fill(null);
+
   if (!located_attendance_record) {
-    located_attendance_record = {
+    new_status_array.fill(applied_status_value);
+    setDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/attendance_records/${target_attendance_identifier}`), {
       attendance_identifier: target_attendance_identifier,
       parent_subject_identifier: target_subject_identifier,
       lecture_date_string: target_date_string,
       lecture_start_hour: target_start_hour,
-      lecture_status_array: new Array(target_total_hours_duration).fill(null),
-    };
-    application_state.attendance_records.push(located_attendance_record);
-  }
-
-  if (
-    located_attendance_record.lecture_status_array[0] === applied_status_value
-  ) {
-    located_attendance_record.lecture_status_array.fill(null);
+      lecture_status_array: new_status_array,
+    });
   } else {
-    located_attendance_record.lecture_status_array.fill(applied_status_value);
+    if (located_attendance_record.lecture_status_array[0] === applied_status_value) {
+      new_status_array.fill(null);
+    } else {
+      new_status_array.fill(applied_status_value);
+    }
+    setDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/attendance_records/${target_attendance_identifier}`), {
+      ...located_attendance_record,
+      lecture_status_array: new_status_array
+    }, { merge: true });
   }
-
-  save_current_application_data();
-  render_entire_application_interface();
 };
 
 window.mark_full_day_attendance_bulk = function (
@@ -1635,23 +1582,20 @@ window.mark_full_day_attendance_bulk = function (
     );
 
     if (!located_attendance_record) {
-      located_attendance_record = {
+      setDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/attendance_records/${generated_attendance_identifier}`), {
         attendance_identifier: generated_attendance_identifier,
-        parent_subject_identifier:
-          lecture_data_object.parent_subject_identifier,
+        parent_subject_identifier: lecture_data_object.parent_subject_identifier,
         lecture_date_string: target_date_string,
         lecture_start_hour: lecture_data_object.start_time_hour_value,
-        lecture_status_array: new Array(
-          lecture_data_object.lecture_duration_value,
-        ).fill(applied_status_value),
-      };
-      application_state.attendance_records.push(located_attendance_record);
+        lecture_status_array: new Array(lecture_data_object.lecture_duration_value).fill(applied_status_value),
+      });
     } else {
-      located_attendance_record.lecture_status_array.fill(applied_status_value);
+      setDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/attendance_records/${generated_attendance_identifier}`), {
+        ...located_attendance_record,
+        lecture_status_array: new Array(lecture_data_object.lecture_duration_value).fill(applied_status_value)
+      }, { merge: true });
     }
   });
-  save_current_application_data();
-  render_entire_application_interface();
 };
 
 window.navigate_calendar_weeks = function (week_offset_integer_value) {
@@ -1740,9 +1684,18 @@ onAuthStateChanged(auth_service_instance, async user => {
     application_state.current_mobile_date_object = new Date();
     initialize_color_selection_palette();
 
-    await load_saved_application_data();
-
+    setup_firestore_listeners();
     switch_module('attendance');
+
+    if (window.innerWidth <= 1000) {
+      document.querySelector('.sidebar').classList.add('active');
+      const overlay = document.getElementById('mobile_sidebar_overlay');
+      if (overlay) {
+        overlay.classList.add('active');
+      }
+    }
+
+    setTimeout(scroll_interface_to_current_time_slot, 100);
 
   } else {
     current_logged_in_user = null;
