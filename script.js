@@ -521,7 +521,10 @@ function render_attendance_statistics_cards() {
       });
 
       if (total_assignments_count === 0) {
-        card_content_html = `<div style="color: var(--text-muted); padding: 10px 0; font-size: 12px; text-align: center;">No Assignments</div>`;
+        card_content_html =
+          `<div class="assignment-empty-state" style="color: var(--text-muted); padding: 10px 0; font-size: 12px; text-align: center;">
+          No Assignments
+          </div>`;
       } else {
         card_content_html = `<div class="assignment-empty-state" style="color: var(--text-muted); padding: 10px 0; font-size: 12px; text-align: center;">No Assignments</div>`;
       }
