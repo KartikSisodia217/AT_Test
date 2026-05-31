@@ -1641,8 +1641,7 @@ onAuthStateChanged(auth_service_instance, async user => {
 
     await load_saved_application_data();
 
-    const saved_module = sessionStorage.getItem('active_module') || 'attendance';
-    switch_module(saved_module);
+    switch_module('attendance');
 
   } else {
     current_logged_in_user = null;
