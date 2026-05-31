@@ -171,6 +171,8 @@ function update_sidebar_auth_action() {
   const auth_action_text = document.getElementById('sidebar_auth_action_text');
   const guest_logout_button = document.getElementById('guest_logout_btn');
   const settings_button = document.getElementById('sidebar_settings_btn');
+  const google_icon = document.getElementById('sidebar_google_icon');
+  const logout_icon = document.getElementById('sidebar_logout_icon');
   if (!auth_action_button || !auth_action_text) return;
 
   if (is_guest_user) {
@@ -178,11 +180,15 @@ function update_sidebar_auth_action() {
     auth_action_text.innerText = 'Sign in with Google';
     guest_logout_button?.classList.remove('hidden');
     settings_button?.classList.add('hidden');
+    google_icon?.classList.remove('hidden');
+    logout_icon?.classList.add('hidden');
   } else {
     auth_action_button.title = 'Logout';
     auth_action_text.innerText = 'Logout';
     guest_logout_button?.classList.add('hidden');
     settings_button?.classList.remove('hidden');
+    google_icon?.classList.add('hidden');
+    logout_icon?.classList.remove('hidden');
   }
 }
 

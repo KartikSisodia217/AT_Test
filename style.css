@@ -876,6 +876,10 @@ body {
     margin-right: 0 !important;
   }
 
+  .sidebar.collapsed .sidebar-google-icon {
+    margin-right: 0;
+  }
+
   .mobile-only-setting {
     display: none !important;
   }
@@ -1036,6 +1040,12 @@ body {
   background-color: var(--bg);
   color: var(--text);
   border-color: #3b4252;
+}
+
+.sidebar-google-icon {
+  width: 16px;
+  height: 16px;
+  margin-right: 6px;
 }
 
 .guest-logout-btn {
