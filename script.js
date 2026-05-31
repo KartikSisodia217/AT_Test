@@ -250,7 +250,7 @@ function get_assignment_status_data(assignment, is_completed) {
   } else if (diff_days === 0) {
     time_remaining_text = 'Due Today';
   } else if (diff_days === 1) {
-    time_remaining_text = 'Tomorrow';
+    time_remaining_text = 'Due Tomorrow';
   } else {
     time_remaining_text = `${diff_days} days left`;
   }
