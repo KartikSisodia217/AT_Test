@@ -1,6 +1,6 @@
 {
   "name": "College Tracker",
-  "short_name": "College Tracker",
+  "short_name": "CT-Test",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f1117",

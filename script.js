@@ -1666,3 +1666,9 @@ document.getElementById('install_help_btn')?.addEventListener('click', () => {
 });
 
 window.addEventListener('resize', render_entire_application_interface);
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js');
+  });
+}
