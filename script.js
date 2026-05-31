@@ -538,6 +538,12 @@ window.switch_module = function (module_name) {
 
   if (module_name === 'assignments') {
     render_assignments();
+  } else if (module_name === 'attendance') {
+    if (window.innerWidth <= 1000) {
+      render_mobile_interface();
+    } else {
+      render_weekly_calendar_grid();
+    }
   }
 };
 
