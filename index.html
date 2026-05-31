@@ -34,9 +34,7 @@
       <div id="install_help_modal" class="install-help-modal">
         <div class="install-help-box">
           <button class="install-close-btn" onclick="close_install_help()">✖</button>
-
           <h3>Install College Tracker</h3>
-
           <div class="install-section">
             <strong>Android (Chrome/Brave/Opera)</strong>
             <p>
@@ -44,7 +42,6 @@
               Add to Home Screen / Install App
             </p>
           </div>
-
           <div class="install-section">
             <strong>iPhone (Safari)</strong>
             <p>
@@ -80,6 +77,7 @@
 
       <div class="module-switcher-container">
         <div class="module-switcher">
+          <div class="switcher-slider" id="switcher_slider"></div>
           <button class="switcher-btn active" data-target="module-attendance" onclick="switch_module('attendance')">Attendance</button>
           <button class="switcher-btn" data-target="module-assignments" onclick="switch_module('assignments')">Assignments</button>
         </div>
@@ -141,7 +139,7 @@
             <button class="mobile-menu-btn" onclick="toggle_mobile_sidebar()">☰</button>
           </div>
           <div style="display: flex; gap: 8px;">
-            <button class="nav-btn" onclick="open_interface_modal('add_assignment_modal')">+ Add Assignment</button>
+            <button class="nav-btn" onclick="open_assignment_modal()">+ Add Assignment</button>
           </div>
         </div>
 
@@ -252,7 +250,7 @@
 
   <div class="modal-overlay" id="add_assignment_modal">
     <div class="modal-box">
-      <div class="modal-title">Add Assignment</div>
+      <div class="modal-title" id="assignment_modal_title">Add Assignment</div>
       <form id="assignment_input_form">
         <div class="form-group"><label>Name</label><input type="text" id="assignment_name_input" required></div>
         <div class="form-group"><label>Subject</label><select id="assignment_subject_selection" required></select></div>
@@ -267,7 +265,7 @@
         <div class="form-group"><label>Due Date</label><input type="date" id="assignment_due_date_input" required></div>
         <div class="modal-actions">
           <button type="button" class="btn btn-secondary" onclick="close_all_interface_modals()">Cancel</button>
-          <button type="submit" class="btn">Save</button>
+          <button type="submit" class="btn" id="assignment_submit_btn">Save</button>
         </div>
       </form>
     </div>

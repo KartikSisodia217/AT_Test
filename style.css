@@ -684,7 +684,6 @@ body {
   transition: all 0.2s;
 }
 
-
 .mobile-overlay {
   position: fixed;
   top: 0;
@@ -703,7 +702,6 @@ body {
   opacity: 1;
   visibility: visible;
 }
-
 
 .desktop-toggle-btn {
   background: var(--bg);
@@ -756,7 +754,6 @@ body {
     display: none;
   }
 
-
   .desktop-nav-controls {
     display: none !important;
   }
@@ -783,7 +780,6 @@ body {
   .mobile-overlay {
     display: none !important;
   }
-
 
   .sidebar {
     transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1052,7 +1048,6 @@ body {
   }
 }
 
-
 .install-help-btn {
   margin-top: 10px;
   background: transparent;
@@ -1071,14 +1066,11 @@ body {
   color: var(--text);
 }
 
-
 @media (max-width: 1000px) {
   .install-help-btn {
     display: block;
   }
 }
-
-
 
 .install-help-modal {
   position: fixed;
@@ -1160,27 +1152,46 @@ body {
   padding: 4px;
   border-radius: 8px;
   border: 1px solid var(--border);
+  position: relative;
+  z-index: 1;
+}
+
+.switcher-slider {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc(50% - 4px);
+  background: var(--bg-sec);
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+  z-index: -1;
 }
 
 .switcher-btn {
   flex: 1;
   padding: 10px 16px;
-  background: transparent;
-  border: none;
+  background: transparent !important;
+  border: none !important;
   color: var(--text-muted);
   font-size: 13px;
   font-weight: 600;
   border-radius: 6px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: color 0.3s ease;
   font-family: var(--font);
+  box-shadow: none !important;
 }
 
 .switcher-btn.active {
-  background: var(--bg-sec);
   color: var(--accent);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  border: 1px solid var(--border);
+}
+
+@keyframes smoothFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .module-content {
@@ -1189,11 +1200,16 @@ body {
   flex: 1;
   overflow: hidden;
   opacity: 0;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.25s ease-out;
+}
+
+.module-content.hidden {
+  display: none !important;
+  opacity: 0;
 }
 
 .module-content.active {
-  opacity: 1;
+  animation: smoothFadeIn 0.25s ease-out forwards;
 }
 
 .filter-controls {
@@ -1283,6 +1299,52 @@ body {
 .overdue-text {
   color: var(--absent);
   font-weight: 600;
+}
+
+.assignment-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.assignment-card.overdue {
+  background: rgba(231, 76, 60, 0.05);
+  border-color: rgba(231, 76, 60, 0.3);
+}
+
+.assignment-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.assignment-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  word-break: break-word;
+  line-height: 1.3;
+}
+
+.assignment-card-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.assignment-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
 }
 
 @media (max-width: 480px) {

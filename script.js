@@ -42,6 +42,7 @@ const application_state = {
 };
 
 let currently_editing_subject_identifier = null;
+let currently_editing_assignment_identifier = null;
 let current_logged_in_user = null;
 
 const WEEK_DAYS_ARRAY = [
@@ -111,6 +112,7 @@ function save_current_application_data() {
     { merge: true },
   );
 }
+
 window.handle_auth_click = async function () {
   const loading_overlay = document.getElementById('auth_loading_overlay');
   const loading_text = document.getElementById('auth_loading_text');
@@ -223,11 +225,20 @@ window.switch_module = function (module_name) {
 
   const active_btn = document.querySelector(`[data-target="module-${module_name}"]`);
   const active_content = document.getElementById(`module-${module_name}`);
+  const slider = document.getElementById('switcher_slider');
 
-  if (active_btn) active_btn.classList.add('active');
+  if (active_btn) {
+    active_btn.classList.add('active');
+    if (slider) {
+      slider.style.transform = module_name === 'assignments' ? 'translateX(100%)' : 'translateX(0)';
+    }
+  }
+
   if (active_content) {
     active_content.classList.remove('hidden');
-    active_content.classList.add('active');
+    setTimeout(() => {
+        active_content.classList.add('active');
+    }, 10);
   }
 
   render_attendance_statistics_cards();
@@ -236,6 +247,32 @@ window.switch_module = function (module_name) {
     render_assignments();
   }
 };
+
+function get_assignment_status_data(assignment, is_completed) {
+  const today_date = new Date();
+  today_date.setHours(0, 0, 0, 0);
+  const due_date = new Date(assignment.due_date_string);
+  due_date.setHours(0, 0, 0, 0);
+  const diff_days = Math.round((due_date - today_date) / 86400000);
+
+  let time_remaining_text = '';
+  let is_overdue = false;
+
+  if (is_completed) {
+    time_remaining_text = '-';
+  } else if (diff_days < 0) {
+    time_remaining_text = `Overdue by ${Math.abs(diff_days)} day${Math.abs(diff_days) > 1 ? 's' : ''}`;
+    is_overdue = true;
+  } else if (diff_days === 0) {
+    time_remaining_text = 'Due Today';
+  } else if (diff_days === 1) {
+    time_remaining_text = 'Tomorrow';
+  } else {
+    time_remaining_text = `${diff_days} days left`;
+  }
+
+  return { time_remaining_text, is_overdue };
+}
 
 function build_assignment_table_html(assignments_array, is_completed) {
   if (assignments_array.length === 0) {
@@ -259,33 +296,11 @@ function build_assignment_table_html(assignments_array, is_completed) {
         <tbody>
   `;
 
-  const today_date = new Date();
-  today_date.setHours(0, 0, 0, 0);
-
   assignments_array.forEach(assignment => {
     const parent_subject = retrieve_subject_object_by_identifier(assignment.parent_subject_identifier);
     if (!parent_subject) return;
 
-    const due_date = new Date(assignment.due_date_string);
-    due_date.setHours(0, 0, 0, 0);
-    const diff_days = Math.round((due_date - today_date) / 86400000);
-
-    let time_remaining_text = '';
-    let is_overdue = false;
-
-    if (is_completed) {
-      time_remaining_text = '-';
-    } else if (diff_days < 0) {
-      time_remaining_text = `Overdue by ${Math.abs(diff_days)} day${Math.abs(diff_days) > 1 ? 's' : ''}`;
-      is_overdue = true;
-    } else if (diff_days === 0) {
-      time_remaining_text = 'Due Today';
-    } else if (diff_days === 1) {
-      time_remaining_text = 'Tomorrow';
-    } else {
-      time_remaining_text = `${diff_days} days left`;
-    }
-
+    const { time_remaining_text, is_overdue } = get_assignment_status_data(assignment, is_completed);
     const row_class = is_overdue && !is_completed ? 'overdue-row' : '';
     const time_class = is_overdue && !is_completed ? 'overdue-text' : '';
 
@@ -303,10 +318,13 @@ function build_assignment_table_html(assignments_array, is_completed) {
         <td><span style="color: var(--text-muted);">${assignment.completion_status}</span></td>
         <td>
           <div style="display: flex; gap: 6px;">
-            <button class="btn ${assignment.completion_status === 'Pending' ? 'btn-secondary' : ''}" style="width: auto; padding: 6px 12px; font-size: 11px;" onclick="toggle_assignment_status('${assignment.assignment_identifier}')">
-              ${assignment.completion_status === 'Pending' ? 'Mark Done' : 'Undo'}
+            <button class="btn btn-secondary" style="width: auto; padding: 6px 12px; font-size: 11px;" onclick="toggle_assignment_status('${assignment.assignment_identifier}')">
+              ${assignment.completion_status === 'Pending' ? 'Complete' : 'Undo'}
             </button>
-            ${assignment.completion_status === 'Completed' ? `<button class="icon-btn delete-btn" style="margin-left: 0;" onclick="delete_assignment('${assignment.assignment_identifier}')">✖</button>` : ''}
+            <button class="btn btn-secondary" style="width: auto; padding: 6px 12px; font-size: 11px;" onclick="open_assignment_modal('${assignment.assignment_identifier}')">
+              Edit
+            </button>
+            <button class="icon-btn delete-btn" style="margin-left: 0; padding: 6px;" onclick="delete_assignment('${assignment.assignment_identifier}')">✖</button>
           </div>
         </td>
       </tr>
@@ -319,6 +337,50 @@ function build_assignment_table_html(assignments_array, is_completed) {
     </div>
   `;
   return table_html;
+}
+
+function build_assignment_cards_html(assignments_array, is_completed) {
+  if (assignments_array.length === 0) {
+    return `<div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 20px;">No ${is_completed ? 'completed' : 'pending'} assignments.</div>`;
+  }
+
+  let html = '';
+
+  assignments_array.forEach(assignment => {
+    const parent_subject = retrieve_subject_object_by_identifier(assignment.parent_subject_identifier);
+    if (!parent_subject) return;
+
+    const { time_remaining_text, is_overdue } = get_assignment_status_data(assignment, is_completed);
+    const card_class = is_overdue && !is_completed ? 'assignment-card overdue' : 'assignment-card';
+    const time_class = is_overdue && !is_completed ? 'overdue-text' : '';
+
+    html += `
+      <div class="${card_class}">
+        <div class="assignment-card-header">
+          <div class="assignment-card-title">${assignment.assignment_name}</div>
+          <span class="priority-badge priority-${assignment.priority_level}">${assignment.priority_level}</span>
+        </div>
+        <div class="assignment-card-meta">
+          <span class="subject-code" style="color: ${parent_subject.subject_color_hex || 'var(--accent)'}; background: ${parent_subject.subject_color_hex ? parent_subject.subject_color_hex + '1A' : 'rgba(124, 92, 255, 0.1)'}; margin: 0;">
+            ${parent_subject.subject_code_text}
+          </span>
+          <span>Due: ${assignment.due_date_string}</span>
+        </div>
+        ${!is_completed ? `<div class="${time_class}" style="font-size: 12px;">${time_remaining_text}</div>` : ''}
+        <div class="assignment-card-actions">
+          <button class="btn btn-secondary" style="width: auto; padding: 6px 12px; font-size: 11px;" onclick="toggle_assignment_status('${assignment.assignment_identifier}')">
+            ${assignment.completion_status === 'Pending' ? 'Complete' : 'Undo'}
+          </button>
+          <button class="btn btn-secondary" style="width: auto; padding: 6px 12px; font-size: 11px;" onclick="open_assignment_modal('${assignment.assignment_identifier}')">
+            Edit
+          </button>
+          <button class="icon-btn delete-btn" style="margin-left: 0; padding: 6px;" onclick="delete_assignment('${assignment.assignment_identifier}')">✖</button>
+        </div>
+      </div>
+    `;
+  });
+
+  return html;
 }
 
 window.render_assignments = function () {
@@ -341,15 +403,13 @@ window.render_assignments = function () {
     a => a.completion_status === 'Completed'
   );
 
-  pending_list.innerHTML = build_assignment_table_html(
-    pending_assignments,
-    false
-  );
-
-  completed_list.innerHTML = build_assignment_table_html(
-    completed_assignments,
-    true
-  );
+  if (window.innerWidth <= 768) {
+    pending_list.innerHTML = build_assignment_cards_html(pending_assignments, false);
+    completed_list.innerHTML = build_assignment_cards_html(completed_assignments, true);
+  } else {
+    pending_list.innerHTML = build_assignment_table_html(pending_assignments, false);
+    completed_list.innerHTML = build_assignment_table_html(completed_assignments, true);
+  }
 };
 
 window.toggle_assignment_status = function (assignment_identifier) {
@@ -364,7 +424,7 @@ window.toggle_assignment_status = function (assignment_identifier) {
 
 window.delete_assignment = function (assignment_identifier) {
   show_custom_confirm(
-    'Delete this completed assignment? This action cannot be undone.',
+    'Delete this assignment? This action cannot be undone.',
     () => {
       application_state.assignments = application_state.assignments.filter(a => a.assignment_identifier !== assignment_identifier);
       save_current_application_data();
@@ -374,27 +434,65 @@ window.delete_assignment = function (assignment_identifier) {
   );
 };
 
+window.open_assignment_modal = function(assignment_identifier = null) {
+  currently_editing_assignment_identifier = assignment_identifier;
+  const title_element = document.getElementById('assignment_modal_title');
+  const submit_button = document.getElementById('assignment_submit_btn');
+  const form = document.getElementById('assignment_input_form');
+  
+  form.reset();
 
+  if (assignment_identifier) {
+    const assignment = application_state.assignments.find(a => a.assignment_identifier === assignment_identifier);
+    if (assignment) {
+      title_element.innerText = 'Edit Assignment';
+      submit_button.innerText = 'Save Changes';
+      document.getElementById('assignment_name_input').value = assignment.assignment_name;
+      document.getElementById('assignment_subject_selection').value = assignment.parent_subject_identifier;
+      document.getElementById('assignment_priority_selection').value = assignment.priority_level;
+      document.getElementById('assignment_due_date_input').value = assignment.due_date_string;
+    }
+  } else {
+    title_element.innerText = 'Add Assignment';
+    submit_button.innerText = 'Save';
+  }
+  
+  open_interface_modal('add_assignment_modal');
+};
 
 document.getElementById('assignment_input_form').addEventListener('submit', form_submit_event => {
   form_submit_event.preventDefault();
+  
+  const name = document.getElementById('assignment_name_input').value.trim();
+  const subject = document.getElementById('assignment_subject_selection').value;
+  const priority = document.getElementById('assignment_priority_selection').value;
+  const due_date = document.getElementById('assignment_due_date_input').value;
 
-  application_state.assignments.push({
-    assignment_identifier: generate_unique_random_identifier('asn'),
-    assignment_name: document.getElementById('assignment_name_input').value.trim(),
-    parent_subject_identifier: document.getElementById('assignment_subject_selection').value,
-    priority_level: document.getElementById('assignment_priority_selection').value,
-    due_date_string: document.getElementById('assignment_due_date_input').value,
-    completion_status: 'Pending',
-    reminder_configured: false,
-    reminder_threshold_minutes: 0
-  });
+  if (currently_editing_assignment_identifier) {
+    const assignment = application_state.assignments.find(a => a.assignment_identifier === currently_editing_assignment_identifier);
+    if (assignment) {
+      assignment.assignment_name = name;
+      assignment.parent_subject_identifier = subject;
+      assignment.priority_level = priority;
+      assignment.due_date_string = due_date;
+    }
+  } else {
+    application_state.assignments.push({
+      assignment_identifier: generate_unique_random_identifier('asn'),
+      assignment_name: name,
+      parent_subject_identifier: subject,
+      priority_level: priority,
+      due_date_string: due_date,
+      completion_status: 'Pending',
+      reminder_configured: false,
+      reminder_threshold_minutes: 0
+    });
+  }
 
   save_current_application_data();
   render_assignments();
   render_attendance_statistics_cards();
   close_all_interface_modals();
-  document.getElementById('assignment_input_form').reset();
 });
 
 function render_entire_application_interface() {
@@ -405,6 +503,7 @@ function render_entire_application_interface() {
   } else {
     render_weekly_calendar_grid();
   }
+  render_assignments();
 }
 
 function render_attendance_statistics_cards() {
@@ -1298,7 +1397,6 @@ document
 
     save_current_application_data();
     render_entire_application_interface();
-    render_assignments();
     close_all_interface_modals();
   });
 
@@ -1336,7 +1434,6 @@ window.delete_selected_subject_data = function (target_subject_identifier) {
         );
       save_current_application_data();
       render_entire_application_interface();
-      render_assignments();
     },
   );
 };
@@ -1580,6 +1677,7 @@ window.open_interface_modal = function (target_modal_identifier_string) {
 };
 window.close_all_interface_modals = function () {
   pending_custom_confirm_callback = null;
+  currently_editing_assignment_identifier = null;
   document
     .querySelectorAll('.modal-overlay')
     .forEach(modal_overlay_element =>
