@@ -713,7 +713,9 @@ body {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s, transform 0.3s;
+  transition: background-color 0.2s ease,
+              border-color 0.2s ease,
+              color 0.2s ease;
 }
 
 .desktop-toggle-btn:hover {
@@ -789,12 +791,16 @@ body {
 
   .sidebar.collapsed .brand {
     width: 100%;
-    justify-content: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
   }
 
   .sidebar.collapsed .brand-actions {
     margin-left: 0 !important;
     width: 100%;
+    display: flex;
     justify-content: center;
   }
 
@@ -1200,8 +1206,13 @@ body {
 }
 
 @keyframes smoothFadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 .module-content {
@@ -1370,12 +1381,12 @@ body {
 }
 
 .app-logo {
-    height: 36px;
-    width: auto;
-    display: block;
+  height: 36px;
+  width: auto;
+  display: block;
 }
 
 input[type="date"]::-webkit-calendar-picker-indicator {
-    filter: invert(1);
-    cursor: pointer;
+  filter: invert(1);
+  cursor: pointer;
 }
