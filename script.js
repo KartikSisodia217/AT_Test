@@ -42,7 +42,7 @@ const application_state = {
   start_of_current_week: null,
   current_mobile_date_object: new Date(),
   mobile_view_mode: 'day',
-  user_preferences: { default_module: 'attendance' }
+  user_preferences: { default_module: 'attendance', open_sidebar_on_startup: true }
 };
 
 let currently_editing_subject_identifier = null;
@@ -129,7 +129,7 @@ function reset_application_state_to_default() {
   application_state.additional_extra_classes = [];
   application_state.attendance_records = [];
   application_state.assignments = [];
-  application_state.user_preferences = { default_module: 'attendance' };
+  application_state.user_preferences = { default_module: 'attendance', open_sidebar_on_startup: true };
   render_entire_application_interface();
   render_assignments();
 }
@@ -1231,7 +1231,7 @@ function initialize_color_selection_palette(
 window.select_subject_color_swatch = function (
   clicked_element,
   color_hex_code_value,
-) {
+  ) {
   document
     .querySelectorAll('.color-swatch')
     .forEach(swatch_element => swatch_element.classList.remove('selected'));
@@ -1619,13 +1619,16 @@ window.navigate_to_current_week = function () {
 
 window.open_settings_modal = function() {
   document.getElementById('setting_default_module').value = application_state.user_preferences.default_module || 'attendance';
+  document.getElementById('setting_mobile_sidebar').value = application_state.user_preferences.open_sidebar_on_startup !== false ? 'true' : 'false';
   open_interface_modal('settings_modal');
 };
 
 document.getElementById('settings_form').addEventListener('submit', form_submit_event => {
   form_submit_event.preventDefault();
   const selected_module = document.getElementById('setting_default_module').value;
+  const open_sidebar = document.getElementById('setting_mobile_sidebar').value === 'true';
   application_state.user_preferences.default_module = selected_module;
+  application_state.user_preferences.open_sidebar_on_startup = open_sidebar;
   setDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/settings/preferences`), application_state.user_preferences, { merge: true });
   close_all_interface_modals();
 });
@@ -1706,17 +1709,22 @@ onAuthStateChanged(auth_service_instance, async user => {
     const prefSnap = await getDoc(prefRef);
     if (prefSnap.exists()) {
       application_state.user_preferences = prefSnap.data();
+      if (typeof application_state.user_preferences.open_sidebar_on_startup === 'undefined') {
+          application_state.user_preferences.open_sidebar_on_startup = true;
+      }
     } else {
-      application_state.user_preferences = { default_module: 'attendance' };
+      application_state.user_preferences = { default_module: 'attendance', open_sidebar_on_startup: true };
     }
 
     switch_module(application_state.user_preferences.default_module || 'attendance');
 
     if (window.innerWidth <= 1000) {
-      document.querySelector('.sidebar').classList.add('active');
-      const overlay = document.getElementById('mobile_sidebar_overlay');
-      if (overlay) {
-        overlay.classList.add('active');
+      if (application_state.user_preferences.open_sidebar_on_startup !== false) {
+          document.querySelector('.sidebar').classList.add('active');
+          const overlay = document.getElementById('mobile_sidebar_overlay');
+          if (overlay) {
+            overlay.classList.add('active');
+          }
       }
     }
 
