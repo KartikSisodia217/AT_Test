@@ -177,7 +177,7 @@ function update_sidebar_auth_action() {
 
   if (is_guest_user) {
     auth_action_button.title = 'Sign in with Google';
-    auth_action_text.innerText = 'Sign in with Google';
+    auth_action_text.innerText = 'Sign in with Google to save data';
     guest_logout_button?.classList.remove('hidden');
     settings_button?.classList.add('hidden');
     google_icon?.classList.remove('hidden');
