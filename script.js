@@ -111,7 +111,6 @@ function save_current_application_data() {
     { merge: true },
   );
 }
-
 window.handle_auth_click = async function () {
   const loading_overlay = document.getElementById('auth_loading_overlay');
   const loading_text = document.getElementById('auth_loading_text');
