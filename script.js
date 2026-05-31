@@ -530,7 +530,11 @@ function render_attendance_statistics_cards() {
           No Assignments
           </div>`;
       } else {
-        card_content_html = `<div class="assignment-empty-state" style="color: var(--text-muted); padding: 10px 0; font-size: 12px; text-align: center;">No Assignments</div>`;
+        card_content_html = `
+    <div class="stat-row"><span>Total Assignments:</span> <span>${total_assignments_count}</span></div>
+    <div class="stat-row"><span>Due Soon:</span> <span style="color: var(--cancelled); font-weight: 600;">${due_soon_count}</span></div>
+    <div class="stat-row"><span>Overdue:</span> <span style="color: var(--absent); font-weight: 600;">${overdue_count}</span></div>
+  `;
       }
     }
 
