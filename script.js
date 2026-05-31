@@ -1705,15 +1705,10 @@ onAuthStateChanged(auth_service_instance, async user => {
     const prefRef = doc(firestore_database_instance, `users/${user.uid}/settings/preferences`);
     const prefSnap = await getDoc(prefRef);
     if (prefSnap.exists()) {
-  application_state.user_preferences = {
-    default_module: 'attendance',
-    ...prefSnap.data()
-  };
-} else {
-  application_state.user_preferences = {
-    default_module: 'attendance'
-  };
-}
+      application_state.user_preferences = prefSnap.data();
+    } else {
+      application_state.user_preferences = { default_module: 'attendance' };
+    }
 
     switch_module(application_state.user_preferences.default_module || 'attendance');
 

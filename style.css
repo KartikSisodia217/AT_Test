@@ -747,7 +747,7 @@ body {
     display: block;
   }
 
-  .desktop-toggle-btn {
+  .desktop-toggle-btn:not(.settings-btn) {
     display: none;
   }
 
