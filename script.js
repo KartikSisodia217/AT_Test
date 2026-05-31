@@ -213,7 +213,7 @@ function gather_lectures_for_date(target_date_string, derived_day_name_string) {
 
 window.switch_module = function (module_name) {
   sessionStorage.setItem('active_module', module_name);
-  
+
   document.querySelectorAll('.switcher-btn').forEach(btn => {
     btn.classList.remove('active');
   });
@@ -221,10 +221,10 @@ window.switch_module = function (module_name) {
     content.classList.add('hidden');
     content.classList.remove('active');
   });
-  
+
   const active_btn = document.querySelector(`[data-target="module-${module_name}"]`);
   const active_content = document.getElementById(`module-${module_name}`);
-  
+
   if (active_btn) active_btn.classList.add('active');
   if (active_content) {
     active_content.classList.remove('hidden');
@@ -242,7 +242,7 @@ function build_assignment_table_html(assignments_array, is_completed) {
   if (assignments_array.length === 0) {
     return `<div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 20px;">No ${is_completed ? 'completed' : 'pending'} assignments.</div>`;
   }
-  
+
   let table_html = `
     <div class="table-responsive">
       <table class="assignments-table">
@@ -259,7 +259,7 @@ function build_assignment_table_html(assignments_array, is_completed) {
         </thead>
         <tbody>
   `;
-  
+
   const today_date = new Date();
   today_date.setHours(0, 0, 0, 0);
 
@@ -270,7 +270,7 @@ function build_assignment_table_html(assignments_array, is_completed) {
     const due_date = new Date(assignment.due_date_string);
     due_date.setHours(0, 0, 0, 0);
     const diff_days = Math.round((due_date - today_date) / 86400000);
-    
+
     let time_remaining_text = '';
     let is_overdue = false;
 
@@ -313,7 +313,7 @@ function build_assignment_table_html(assignments_array, is_completed) {
       </tr>
     `;
   });
-  
+
   table_html += `
         </tbody>
       </table>
@@ -345,7 +345,7 @@ window.render_assignments = function () {
   completed_list.innerHTML = build_assignment_table_html(completed_assignments, true);
 };
 
-window.toggle_assignment_status = function(assignment_identifier) {
+window.toggle_assignment_status = function (assignment_identifier) {
   const assignment = application_state.assignments.find(a => a.assignment_identifier === assignment_identifier);
   if (assignment) {
     assignment.completion_status = assignment.completion_status === 'Pending' ? 'Completed' : 'Pending';
@@ -355,7 +355,7 @@ window.toggle_assignment_status = function(assignment_identifier) {
   }
 };
 
-window.delete_assignment = function(assignment_identifier) {
+window.delete_assignment = function (assignment_identifier) {
   show_custom_confirm(
     'Delete this completed assignment? This action cannot be undone.',
     () => {
@@ -367,7 +367,7 @@ window.delete_assignment = function(assignment_identifier) {
   );
 };
 
-window.clear_assignment_filters = function() {
+window.clear_assignment_filters = function () {
   document.getElementById('filter_subject').value = '';
   document.getElementById('filter_priority').value = '';
   render_assignments();
@@ -375,7 +375,7 @@ window.clear_assignment_filters = function() {
 
 document.getElementById('assignment_input_form').addEventListener('submit', form_submit_event => {
   form_submit_event.preventDefault();
-  
+
   application_state.assignments.push({
     assignment_identifier: generate_unique_random_identifier('asn'),
     assignment_name: document.getElementById('assignment_name_input').value.trim(),
@@ -409,7 +409,7 @@ function render_attendance_statistics_cards() {
     'stats_list_container',
   );
   if (!statistics_list_container) return;
-  
+
   statistics_list_container.innerHTML = '';
   const active_module = sessionStorage.getItem('active_module') || 'attendance';
 
@@ -510,7 +510,7 @@ function render_attendance_statistics_cards() {
             const due_date = new Date(assignment.due_date_string);
             due_date.setHours(0, 0, 0, 0);
             const diff_days = Math.round((due_date - today_date) / 86400000);
-            
+
             if (diff_days < 0) {
               overdue_count++;
             } else if (diff_days >= 0 && diff_days <= 2) {
@@ -523,11 +523,7 @@ function render_attendance_statistics_cards() {
       if (total_assignments_count === 0) {
         card_content_html = `<div style="color: var(--text-muted); padding: 10px 0; font-size: 12px; text-align: center;">No Assignments</div>`;
       } else {
-        card_content_html = `
-          <div class="stat-row"><span>Total Assignments:</span> <span>${total_assignments_count}</span></div>
-          <div class="stat-row"><span>Due Soon:</span> <span style="color: var(--cancelled); font-weight: 600;">${due_soon_count}</span></div>
-          <div class="stat-row"><span>Overdue:</span> <span style="color: var(--absent); font-weight: 600;">${overdue_count}</span></div>
-        `;
+        card_content_html = `<div class="assignment-empty-state" style="color: var(--text-muted); padding: 10px 0; font-size: 12px; text-align: center;">No Assignments</div>`;
       }
     }
 
@@ -1118,11 +1114,11 @@ function update_dropdown_selection_options() {
         `<option value="${subject_item.subject_identifier}">${subject_item.subject_name_text} (${subject_item.subject_code_text})</option>`,
     )
     .join('');
-    
+
   if (slot_subject_dropdown_element) slot_subject_dropdown_element.innerHTML = generated_options_html_string;
   if (extra_subject_dropdown_element) extra_subject_dropdown_element.innerHTML = generated_options_html_string;
   if (assignment_subject_selection) assignment_subject_selection.innerHTML = generated_options_html_string;
-  
+
   if (filter_subject) {
     filter_subject.innerHTML = `<option value="">All Subjects</option>` + generated_options_html_string;
   }
@@ -1327,10 +1323,10 @@ window.delete_selected_subject_data = function (target_subject_identifier) {
             attendance_item.parent_subject_identifier !==
             target_subject_identifier,
         );
-      application_state.assignments = 
+      application_state.assignments =
         application_state.assignments.filter(
           assignment_item =>
-            assignment_item.parent_subject_identifier !== 
+            assignment_item.parent_subject_identifier !==
             target_subject_identifier
         );
       save_current_application_data();
@@ -1642,7 +1638,7 @@ onAuthStateChanged(auth_service_instance, async user => {
     initialize_color_selection_palette();
 
     await load_saved_application_data();
-    
+
     const saved_module = sessionStorage.getItem('active_module') || 'attendance';
     switch_module(saved_module);
 

@@ -717,7 +717,7 @@ body {
   justify-content: center;
   cursor: pointer;
   margin-left: auto;
-  
+
   transition: all 0.2s, transform 0.3s;
 }
 
@@ -756,7 +756,7 @@ body {
     display: none;
   }
 
-  
+
   .desktop-nav-controls {
     display: none !important;
   }
@@ -784,7 +784,7 @@ body {
     display: none !important;
   }
 
-  
+
   .sidebar {
     transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
@@ -811,6 +811,10 @@ body {
   .sidebar.collapsed .subject-name-text,
   .sidebar.collapsed .stat-row,
   .sidebar.collapsed .stat-perc,
+  .sidebar.collapsed .assignment-empty-state {
+    display: none !important;
+  }
+
   .sidebar.collapsed .target-text-output,
   .sidebar.collapsed .edit-btn,
   .sidebar.collapsed .delete-btn,
@@ -1286,6 +1290,7 @@ body {
     align-items: stretch;
     width: 100%;
   }
+
   .filter-controls .nav-btn {
     width: 100%;
   }
