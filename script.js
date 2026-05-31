@@ -12,6 +12,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import {
   doc,
+  getDoc,
   setDoc,
   deleteDoc,
   collection,
@@ -41,6 +42,7 @@ const application_state = {
   start_of_current_week: null,
   current_mobile_date_object: new Date(),
   mobile_view_mode: 'day',
+  user_preferences: { default_module: 'attendance' }
 };
 
 let currently_editing_subject_identifier = null;
@@ -127,6 +129,7 @@ function reset_application_state_to_default() {
   application_state.additional_extra_classes = [];
   application_state.attendance_records = [];
   application_state.assignments = [];
+  application_state.user_preferences = { default_module: 'attendance' };
   render_entire_application_interface();
   render_assignments();
 }
@@ -250,7 +253,7 @@ function get_assignment_status_data(assignment, is_completed) {
   } else if (diff_days === 0) {
     time_remaining_text = 'Due Today';
   } else if (diff_days === 1) {
-    time_remaining_text = 'Due Tomorrow';
+    time_remaining_text = 'Tomorrow';
   } else {
     time_remaining_text = `${diff_days} days left`;
   }
@@ -1614,6 +1617,19 @@ window.navigate_to_current_week = function () {
   setTimeout(scroll_interface_to_current_time_slot, 100);
 };
 
+window.open_settings_modal = function() {
+  document.getElementById('setting_default_module').value = application_state.user_preferences.default_module || 'attendance';
+  open_interface_modal('settings_modal');
+};
+
+document.getElementById('settings_form').addEventListener('submit', form_submit_event => {
+  form_submit_event.preventDefault();
+  const selected_module = document.getElementById('setting_default_module').value;
+  application_state.user_preferences.default_module = selected_module;
+  setDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/settings/preferences`), application_state.user_preferences, { merge: true });
+  close_all_interface_modals();
+});
+
 window.open_interface_modal = function (target_modal_identifier_string) {
   document
     .getElementById(target_modal_identifier_string)
@@ -1685,7 +1701,21 @@ onAuthStateChanged(auth_service_instance, async user => {
     initialize_color_selection_palette();
 
     setup_firestore_listeners();
-    switch_module('attendance');
+
+    const prefRef = doc(firestore_database_instance, `users/${user.uid}/settings/preferences`);
+    const prefSnap = await getDoc(prefRef);
+    if (prefSnap.exists()) {
+  application_state.user_preferences = {
+    default_module: 'attendance',
+    ...prefSnap.data()
+  };
+} else {
+  application_state.user_preferences = {
+    default_module: 'attendance'
+  };
+}
+
+    switch_module(application_state.user_preferences.default_module || 'attendance');
 
     if (window.innerWidth <= 1000) {
       document.querySelector('.sidebar').classList.add('active');
