@@ -19,6 +19,13 @@ import {
   onSnapshot
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
+const GUEST_STORAGE_KEY = 'college_tracker_guest_data_v1';
+const GUEST_SESSION_KEY = 'college_tracker_guest_session_active';
+
+function create_default_user_preferences() {
+  return { default_module: 'attendance', open_sidebar_on_startup: true };
+}
+
 let is_initial_auth_resolved = false;
 let auth_timeout_id = setTimeout(() => {
   if (!is_initial_auth_resolved) {
@@ -42,13 +49,16 @@ const application_state = {
   start_of_current_week: null,
   current_mobile_date_object: new Date(),
   mobile_view_mode: 'day',
-  user_preferences: { default_module: 'attendance', open_sidebar_on_startup: true }
+  user_preferences: create_default_user_preferences()
 };
 
 let currently_editing_subject_identifier = null;
 let currently_editing_assignment_identifier = null;
 let current_logged_in_user = null;
+let is_guest_user = false;
 let firestore_unsubscribers = [];
+let pending_guest_upgrade_user = null;
+let pending_guest_upgrade_data = null;
 
 const WEEK_DAYS_ARRAY = [
   'Monday',
@@ -70,19 +80,246 @@ const THEME_COLORS_ARRAY = [
   '#00cec9',
 ];
 
+const PERSISTED_COLLECTION_DEFINITIONS = [
+  { name: 'subjects', stateKey: 'enrolled_subjects', idKey: 'subject_identifier' },
+  { name: 'weekly_slots', stateKey: 'weekly_schedule_slots', idKey: 'slot_identifier' },
+  { name: 'extra_classes', stateKey: 'additional_extra_classes', idKey: 'extra_class_identifier' },
+  { name: 'attendance_records', stateKey: 'attendance_records', idKey: 'attendance_identifier' },
+  { name: 'assignments', stateKey: 'assignments', idKey: 'assignment_identifier' }
+];
+
+function get_persisted_collection_definition(collection_name) {
+  return PERSISTED_COLLECTION_DEFINITIONS.find(definition => definition.name === collection_name);
+}
+
+function is_running_as_installed_pwa() {
+  return window.matchMedia('(display-mode: standalone)').matches ||
+    window.matchMedia('(display-mode: fullscreen)').matches ||
+    window.navigator.standalone === true;
+}
+
+function update_guest_button_visibility() {
+  const guest_button = document.getElementById('guest_mode_btn');
+  if (!guest_button) return;
+  guest_button.classList.remove('hidden');
+}
+
+function read_guest_storage_snapshot() {
+  let stored_guest_data = {};
+
+  try {
+    stored_guest_data = JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '{}') || {};
+  } catch (error) {
+    stored_guest_data = {};
+  }
+
+  return {
+    enrolled_subjects: Array.isArray(stored_guest_data.enrolled_subjects) ? stored_guest_data.enrolled_subjects : [],
+    weekly_schedule_slots: Array.isArray(stored_guest_data.weekly_schedule_slots) ? stored_guest_data.weekly_schedule_slots : [],
+    additional_extra_classes: Array.isArray(stored_guest_data.additional_extra_classes) ? stored_guest_data.additional_extra_classes : [],
+    attendance_records: Array.isArray(stored_guest_data.attendance_records) ? stored_guest_data.attendance_records : [],
+    assignments: Array.isArray(stored_guest_data.assignments) ? stored_guest_data.assignments : [],
+    user_preferences: {
+      ...create_default_user_preferences(),
+      ...(stored_guest_data.user_preferences || {})
+    }
+  };
+}
+
+function guest_storage_has_data(guest_data = read_guest_storage_snapshot()) {
+  const default_preferences = create_default_user_preferences();
+  return guest_data.enrolled_subjects.length > 0 ||
+    guest_data.weekly_schedule_slots.length > 0 ||
+    guest_data.additional_extra_classes.length > 0 ||
+    guest_data.attendance_records.length > 0 ||
+    guest_data.assignments.length > 0 ||
+    guest_data.user_preferences.default_module !== default_preferences.default_module ||
+    guest_data.user_preferences.open_sidebar_on_startup !== default_preferences.open_sidebar_on_startup;
+}
+
+function save_guest_application_state() {
+  if (!is_guest_user) return;
+
+  localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify({
+    enrolled_subjects: application_state.enrolled_subjects,
+    weekly_schedule_slots: application_state.weekly_schedule_slots,
+    additional_extra_classes: application_state.additional_extra_classes,
+    attendance_records: application_state.attendance_records,
+    assignments: application_state.assignments,
+    user_preferences: application_state.user_preferences
+  }));
+  localStorage.setItem(GUEST_SESSION_KEY, 'true');
+}
+
+function load_guest_application_state() {
+  const guest_data = read_guest_storage_snapshot();
+  application_state.enrolled_subjects = guest_data.enrolled_subjects;
+  application_state.weekly_schedule_slots = guest_data.weekly_schedule_slots;
+  application_state.additional_extra_classes = guest_data.additional_extra_classes;
+  application_state.attendance_records = guest_data.attendance_records;
+  application_state.assignments = guest_data.assignments;
+  application_state.user_preferences = guest_data.user_preferences;
+}
+
+function clear_guest_local_data() {
+  localStorage.removeItem(GUEST_STORAGE_KEY);
+  localStorage.removeItem(GUEST_SESSION_KEY);
+}
+
+function update_sidebar_auth_action() {
+  const auth_action_button = document.getElementById('sidebar_auth_action_btn');
+  const auth_action_text = document.getElementById('sidebar_auth_action_text');
+  const guest_logout_button = document.getElementById('guest_logout_btn');
+  const settings_button = document.getElementById('sidebar_settings_btn');
+  if (!auth_action_button || !auth_action_text) return;
+
+  if (is_guest_user) {
+    auth_action_button.title = 'Sign in with Google';
+    auth_action_text.innerText = 'Sign in with Google';
+    guest_logout_button?.classList.remove('hidden');
+    settings_button?.classList.add('hidden');
+  } else {
+    auth_action_button.title = 'Logout';
+    auth_action_text.innerText = 'Logout';
+    guest_logout_button?.classList.add('hidden');
+    settings_button?.classList.remove('hidden');
+  }
+}
+
+function render_authenticated_shell(welcome_text) {
+  const login_screen = document.getElementById('login_screen');
+  const main_app = document.getElementById('main_app');
+  const user_welcome_text = document.getElementById('user_welcome_text');
+
+  login_screen.classList.add('hidden');
+  main_app.classList.remove('hidden');
+  user_welcome_text.innerText = welcome_text;
+
+  application_state.start_of_current_week = calculate_monday_of_target_week(new Date());
+  application_state.current_mobile_date_object = new Date();
+  initialize_color_selection_palette();
+  update_sidebar_auth_action();
+}
+
+function apply_startup_preferences(forced_module_name = null) {
+  switch_module(forced_module_name || application_state.user_preferences.default_module || 'attendance');
+
+  if (window.innerWidth <= 1000) {
+    if (application_state.user_preferences.open_sidebar_on_startup !== false) {
+      document.querySelector('.sidebar').classList.add('active');
+      const overlay = document.getElementById('mobile_sidebar_overlay');
+      if (overlay) {
+        overlay.classList.add('active');
+      }
+    }
+  }
+
+  setTimeout(scroll_interface_to_current_time_slot, 100);
+}
+
+function persist_collection_record(collection_name, document_identifier, record_data, options = {}) {
+  if (is_guest_user) {
+    const collection_definition = get_persisted_collection_definition(collection_name);
+    if (!collection_definition) return Promise.resolve();
+
+    const state_collection = application_state[collection_definition.stateKey];
+    const existing_index = state_collection.findIndex(
+      item => item[collection_definition.idKey] === document_identifier
+    );
+    const next_record = options.merge && existing_index >= 0
+      ? { ...state_collection[existing_index], ...record_data }
+      : record_data;
+
+    if (existing_index >= 0) {
+      state_collection[existing_index] = next_record;
+    } else {
+      state_collection.push(next_record);
+    }
+
+    save_guest_application_state();
+    render_entire_application_interface();
+    return Promise.resolve();
+  }
+
+  if (!current_logged_in_user) return Promise.resolve();
+  return setDoc(
+    doc(firestore_database_instance, `users/${current_logged_in_user.uid}/${collection_name}/${document_identifier}`),
+    record_data,
+    options
+  );
+}
+
+function delete_collection_record(collection_name, document_identifier) {
+  if (is_guest_user) {
+    const collection_definition = get_persisted_collection_definition(collection_name);
+    if (!collection_definition) return Promise.resolve();
+
+    application_state[collection_definition.stateKey] =
+      application_state[collection_definition.stateKey].filter(
+        item => item[collection_definition.idKey] !== document_identifier
+      );
+
+    save_guest_application_state();
+    render_entire_application_interface();
+    return Promise.resolve();
+  }
+
+  if (!current_logged_in_user) return Promise.resolve();
+  return deleteDoc(
+    doc(firestore_database_instance, `users/${current_logged_in_user.uid}/${collection_name}/${document_identifier}`)
+  );
+}
+
+function persist_user_preferences() {
+  if (is_guest_user) {
+    save_guest_application_state();
+    return Promise.resolve();
+  }
+
+  if (!current_logged_in_user) return Promise.resolve();
+  return setDoc(
+    doc(firestore_database_instance, `users/${current_logged_in_user.uid}/settings/preferences`),
+    application_state.user_preferences,
+    { merge: true }
+  );
+}
+
+async function save_guest_snapshot_to_firestore(user, guest_data) {
+  const writes = [];
+
+  PERSISTED_COLLECTION_DEFINITIONS.forEach(collection_definition => {
+    guest_data[collection_definition.stateKey].forEach(record_item => {
+      writes.push(setDoc(
+        doc(
+          firestore_database_instance,
+          `users/${user.uid}/${collection_definition.name}/${record_item[collection_definition.idKey]}`
+        ),
+        record_item,
+        { merge: true }
+      ));
+    });
+  });
+
+  writes.push(setDoc(
+    doc(firestore_database_instance, `users/${user.uid}/settings/preferences`),
+    guest_data.user_preferences,
+    { merge: true }
+  ));
+
+  await Promise.all(writes);
+}
+
+function show_guest_upgrade_modal(user, guest_data) {
+  pending_guest_upgrade_user = user;
+  pending_guest_upgrade_data = guest_data;
+  document.getElementById('guest_upgrade_modal')?.classList.add('active');
+}
+
 function setup_firestore_listeners() {
-  if (!current_logged_in_user) return;
+  if (is_guest_user || !current_logged_in_user) return;
   const uid = current_logged_in_user.uid;
 
-  const collections = [
-    { name: 'subjects', stateKey: 'enrolled_subjects' },
-    { name: 'weekly_slots', stateKey: 'weekly_schedule_slots' },
-    { name: 'extra_classes', stateKey: 'additional_extra_classes' },
-    { name: 'attendance_records', stateKey: 'attendance_records' },
-    { name: 'assignments', stateKey: 'assignments' }
-  ];
-
-  collections.forEach(col => {
+  PERSISTED_COLLECTION_DEFINITIONS.forEach(col => {
     const colRef = collection(firestore_database_instance, `users/${uid}/${col.name}`);
     const unsub = onSnapshot(colRef, (snapshot) => {
       application_state[col.stateKey] = snapshot.docs.map(doc => doc.data());
@@ -102,7 +339,7 @@ window.handle_auth_click = async function () {
   const loading_overlay = document.getElementById('auth_loading_overlay');
   const loading_text = document.getElementById('auth_loading_text');
 
-  if (current_logged_in_user) {
+  if (current_logged_in_user && !is_guest_user) {
     loading_text.innerText = 'Signing out...';
     loading_overlay.classList.add('active');
     try {
@@ -111,7 +348,7 @@ window.handle_auth_click = async function () {
       loading_overlay.classList.remove('active');
     }
   } else {
-    loading_text.innerText = 'Signing in...';
+    loading_text.innerText = is_guest_user ? 'Signing in with Google...' : 'Signing in...';
     loading_overlay.classList.add('active');
     try {
       await setPersistence(auth_service_instance, browserLocalPersistence);
@@ -122,6 +359,25 @@ window.handle_auth_click = async function () {
   }
 };
 
+window.enter_guest_mode = function () {
+  localStorage.setItem(GUEST_SESSION_KEY, 'true');
+  start_guest_session();
+};
+
+window.exit_guest_mode = function () {
+  localStorage.removeItem(GUEST_SESSION_KEY);
+  is_guest_user = false;
+  current_logged_in_user = null;
+
+  document.getElementById('login_screen')?.classList.remove('hidden');
+  document.getElementById('main_app')?.classList.add('hidden');
+  document.querySelector('.sidebar')?.classList.remove('active');
+  document.getElementById('mobile_sidebar_overlay')?.classList.remove('active');
+  window.close_all_interface_modals?.();
+  reset_application_state_to_default();
+  update_sidebar_auth_action();
+};
+
 function reset_application_state_to_default() {
   clear_firestore_listeners();
   application_state.enrolled_subjects = [];
@@ -129,9 +385,53 @@ function reset_application_state_to_default() {
   application_state.additional_extra_classes = [];
   application_state.attendance_records = [];
   application_state.assignments = [];
-  application_state.user_preferences = { default_module: 'attendance', open_sidebar_on_startup: true };
+  application_state.user_preferences = create_default_user_preferences();
   render_entire_application_interface();
   render_assignments();
+}
+
+function start_guest_session() {
+  clear_firestore_listeners();
+  current_logged_in_user = null;
+  is_guest_user = true;
+  load_guest_application_state();
+  render_authenticated_shell('Welcome, Guest');
+  apply_startup_preferences('attendance');
+
+  const loading_overlay = document.getElementById('auth_loading_overlay');
+  if (loading_overlay) {
+    loading_overlay.classList.remove('active');
+  }
+}
+
+async function start_authenticated_session(user) {
+  clear_firestore_listeners();
+  is_guest_user = false;
+  current_logged_in_user = user;
+  localStorage.removeItem(GUEST_SESSION_KEY);
+  application_state.enrolled_subjects = [];
+  application_state.weekly_schedule_slots = [];
+  application_state.additional_extra_classes = [];
+  application_state.attendance_records = [];
+  application_state.assignments = [];
+  application_state.user_preferences = create_default_user_preferences();
+  const display_name = user.displayName || 'Student';
+  render_authenticated_shell(`Welcome, ${display_name.split(' ')[0]}`);
+
+  setup_firestore_listeners();
+
+  const prefRef = doc(firestore_database_instance, `users/${user.uid}/settings/preferences`);
+  const prefSnap = await getDoc(prefRef);
+  if (prefSnap.exists()) {
+    application_state.user_preferences = prefSnap.data();
+    if (typeof application_state.user_preferences.open_sidebar_on_startup === 'undefined') {
+      application_state.user_preferences.open_sidebar_on_startup = true;
+    }
+  } else {
+    application_state.user_preferences = create_default_user_preferences();
+  }
+
+  apply_startup_preferences();
 }
 
 function calculate_monday_of_target_week(target_date_object) {
@@ -403,7 +703,7 @@ window.toggle_assignment_status = function (assignment_identifier) {
   const assignment = application_state.assignments.find(a => a.assignment_identifier === assignment_identifier);
   if (assignment) {
     const new_status = assignment.completion_status === 'Pending' ? 'Completed' : 'Pending';
-    setDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/assignments/${assignment_identifier}`), { ...assignment, completion_status: new_status }, { merge: true });
+    persist_collection_record('assignments', assignment_identifier, { ...assignment, completion_status: new_status }, { merge: true });
   }
 };
 
@@ -411,7 +711,7 @@ window.delete_assignment = function (assignment_identifier) {
   show_custom_confirm(
     'Delete this assignment? This action cannot be undone.',
     () => {
-      deleteDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/assignments/${assignment_identifier}`));
+      delete_collection_record('assignments', assignment_identifier);
     }
   );
 };
@@ -453,7 +753,7 @@ document.getElementById('assignment_input_form').addEventListener('submit', form
   if (currently_editing_assignment_identifier) {
     const assignment = application_state.assignments.find(a => a.assignment_identifier === currently_editing_assignment_identifier);
     if (assignment) {
-      setDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/assignments/${currently_editing_assignment_identifier}`), {
+      persist_collection_record('assignments', currently_editing_assignment_identifier, {
         ...assignment,
         assignment_name: name,
         parent_subject_identifier: subject,
@@ -463,7 +763,7 @@ document.getElementById('assignment_input_form').addEventListener('submit', form
     }
   } else {
     const new_id = generate_unique_random_identifier('asn');
-    setDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/assignments/${new_id}`), {
+    persist_collection_record('assignments', new_id, {
       assignment_identifier: new_id,
       assignment_name: name,
       parent_subject_identifier: subject,
@@ -1355,7 +1655,7 @@ document
       const subject_to_update = retrieve_subject_object_by_identifier(
         currently_editing_subject_identifier,
       );
-      setDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/subjects/${currently_editing_subject_identifier}`), {
+      persist_collection_record('subjects', currently_editing_subject_identifier, {
         ...subject_to_update,
         subject_name_text: entered_subject_name_value,
         subject_code_text: entered_subject_code_value,
@@ -1373,7 +1673,7 @@ document
         return;
       }
       const new_id = generate_unique_random_identifier('sub');
-      setDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/subjects/${new_id}`), {
+      persist_collection_record('subjects', new_id, {
         subject_identifier: new_id,
         subject_name_text: entered_subject_name_value,
         subject_code_text: entered_subject_code_value,
@@ -1388,27 +1688,27 @@ window.delete_selected_subject_data = function (target_subject_identifier) {
   show_custom_confirm(
     'Delete subject? This will remove all associated slots, extra classes, assignments, and attendance.',
     () => {
-      deleteDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/subjects/${target_subject_identifier}`));
+      delete_collection_record('subjects', target_subject_identifier);
 
       application_state.weekly_schedule_slots.filter(
         slot_item => slot_item.parent_subject_identifier === target_subject_identifier
       ).forEach(slot_item => {
-        deleteDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/weekly_slots/${slot_item.slot_identifier}`));
+        delete_collection_record('weekly_slots', slot_item.slot_identifier);
       });
       application_state.additional_extra_classes.filter(
         extra_class_item => extra_class_item.parent_subject_identifier === target_subject_identifier
       ).forEach(extra_class_item => {
-        deleteDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/extra_classes/${extra_class_item.extra_class_identifier}`));
+        delete_collection_record('extra_classes', extra_class_item.extra_class_identifier);
       });
       application_state.attendance_records.filter(
         attendance_item => attendance_item.parent_subject_identifier === target_subject_identifier
       ).forEach(attendance_item => {
-        deleteDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/attendance_records/${attendance_item.attendance_identifier}`));
+        delete_collection_record('attendance_records', attendance_item.attendance_identifier);
       });
       application_state.assignments.filter(
         assignment_item => assignment_item.parent_subject_identifier === target_subject_identifier
       ).forEach(assignment_item => {
-        deleteDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/assignments/${assignment_item.assignment_identifier}`));
+        delete_collection_record('assignments', assignment_item.assignment_identifier);
       });
     },
   );
@@ -1419,7 +1719,7 @@ document
   .addEventListener('submit', form_submit_event => {
     form_submit_event.preventDefault();
     const new_id = generate_unique_random_identifier('slot');
-    setDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/weekly_slots/${new_id}`), {
+    persist_collection_record('weekly_slots', new_id, {
       slot_identifier: new_id,
       parent_subject_identifier: document.getElementById('slot_subject_selection').value,
       day_of_week_name: document.getElementById('slot_day_selection').value,
@@ -1434,7 +1734,7 @@ document
   .addEventListener('submit', form_submit_event => {
     form_submit_event.preventDefault();
     const new_id = generate_unique_random_identifier('extra');
-    setDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/extra_classes/${new_id}`), {
+    persist_collection_record('extra_classes', new_id, {
       extra_class_identifier: new_id,
       parent_subject_identifier: document.getElementById('extra_subject_selection').value,
       lecture_date_string: document.getElementById('extra_date_selection').value,
@@ -1479,12 +1779,12 @@ window.delete_scheduled_lecture_instance = function (
                 derived_day_name_string ===
                 located_slot_record.day_of_week_name
               ) {
-                deleteDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/attendance_records/${attendance_item.attendance_identifier}`));
+                delete_collection_record('attendance_records', attendance_item.attendance_identifier);
               }
             }
           });
         }
-        deleteDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/weekly_slots/${target_lecture_identifier}`));
+        delete_collection_record('weekly_slots', target_lecture_identifier);
       }
 
       if (lecture_type_string_value === 'extra') {
@@ -1504,11 +1804,11 @@ window.delete_scheduled_lecture_instance = function (
               attendance_item.lecture_start_hour ===
               located_extra_class_record.start_time_hour_value
             ) {
-              deleteDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/attendance_records/${attendance_item.attendance_identifier}`));
+              delete_collection_record('attendance_records', attendance_item.attendance_identifier);
             }
           });
         }
-        deleteDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/extra_classes/${target_lecture_identifier}`));
+        delete_collection_record('extra_classes', target_lecture_identifier);
       }
     },
   );
@@ -1531,7 +1831,7 @@ window.mark_specific_lecture_attendance_bulk = function (
 
   if (!located_attendance_record) {
     new_status_array.fill(applied_status_value);
-    setDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/attendance_records/${target_attendance_identifier}`), {
+    persist_collection_record('attendance_records', target_attendance_identifier, {
       attendance_identifier: target_attendance_identifier,
       parent_subject_identifier: target_subject_identifier,
       lecture_date_string: target_date_string,
@@ -1544,7 +1844,7 @@ window.mark_specific_lecture_attendance_bulk = function (
     } else {
       new_status_array.fill(applied_status_value);
     }
-    setDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/attendance_records/${target_attendance_identifier}`), {
+    persist_collection_record('attendance_records', target_attendance_identifier, {
       ...located_attendance_record,
       lecture_status_array: new_status_array
     }, { merge: true });
@@ -1585,7 +1885,7 @@ window.mark_full_day_attendance_bulk = function (
     );
 
     if (!located_attendance_record) {
-      setDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/attendance_records/${generated_attendance_identifier}`), {
+      persist_collection_record('attendance_records', generated_attendance_identifier, {
         attendance_identifier: generated_attendance_identifier,
         parent_subject_identifier: lecture_data_object.parent_subject_identifier,
         lecture_date_string: target_date_string,
@@ -1593,7 +1893,7 @@ window.mark_full_day_attendance_bulk = function (
         lecture_status_array: new Array(lecture_data_object.lecture_duration_value).fill(applied_status_value),
       });
     } else {
-      setDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/attendance_records/${generated_attendance_identifier}`), {
+      persist_collection_record('attendance_records', generated_attendance_identifier, {
         ...located_attendance_record,
         lecture_status_array: new Array(lecture_data_object.lecture_duration_value).fill(applied_status_value)
       }, { merge: true });
@@ -1629,7 +1929,7 @@ document.getElementById('settings_form').addEventListener('submit', form_submit_
   const open_sidebar = document.getElementById('setting_mobile_sidebar').value === 'true';
   application_state.user_preferences.default_module = selected_module;
   application_state.user_preferences.open_sidebar_on_startup = open_sidebar;
-  setDoc(doc(firestore_database_instance, `users/${current_logged_in_user.uid}/settings/preferences`), application_state.user_preferences, { merge: true });
+  persist_user_preferences();
   close_all_interface_modals();
 });
 
@@ -1686,63 +1986,79 @@ onAuthStateChanged(auth_service_instance, async user => {
 
   const login_screen = document.getElementById('login_screen');
   const main_app = document.getElementById('main_app');
-  const user_welcome_text = document.getElementById('user_welcome_text');
   const loading_overlay = document.getElementById('auth_loading_overlay');
 
   if (user) {
-    current_logged_in_user = user;
-
-    login_screen.classList.add('hidden');
-    main_app.classList.remove('hidden');
-
-    user_welcome_text.innerText = `Welcome, ${user.displayName.split(' ')[0]}`;
-
-    application_state.start_of_current_week = calculate_monday_of_target_week(
-      new Date(),
-    );
-    application_state.current_mobile_date_object = new Date();
-    initialize_color_selection_palette();
-
-    setup_firestore_listeners();
-
-    const prefRef = doc(firestore_database_instance, `users/${user.uid}/settings/preferences`);
-    const prefSnap = await getDoc(prefRef);
-    if (prefSnap.exists()) {
-      application_state.user_preferences = prefSnap.data();
-      if (typeof application_state.user_preferences.open_sidebar_on_startup === 'undefined') {
-          application_state.user_preferences.open_sidebar_on_startup = true;
+    const guest_data = read_guest_storage_snapshot();
+    if (guest_storage_has_data(guest_data)) {
+      show_guest_upgrade_modal(user, guest_data);
+      if (loading_overlay) {
+        loading_overlay.classList.remove('active');
       }
-    } else {
-      application_state.user_preferences = { default_module: 'attendance', open_sidebar_on_startup: true };
+      return;
     }
 
-    switch_module(application_state.user_preferences.default_module || 'attendance');
-
-    if (window.innerWidth <= 1000) {
-      if (application_state.user_preferences.open_sidebar_on_startup !== false) {
-          document.querySelector('.sidebar').classList.add('active');
-          const overlay = document.getElementById('mobile_sidebar_overlay');
-          if (overlay) {
-            overlay.classList.add('active');
-          }
-      }
-    }
-
-    setTimeout(scroll_interface_to_current_time_slot, 100);
-
+    await start_authenticated_session(user);
   } else {
     current_logged_in_user = null;
+    is_guest_user = false;
 
-    login_screen.classList.remove('hidden');
-    main_app.classList.add('hidden');
+    if (localStorage.getItem(GUEST_SESSION_KEY) === 'true') {
+      start_guest_session();
+    } else {
+      login_screen.classList.remove('hidden');
+      main_app.classList.add('hidden');
 
-    reset_application_state_to_default();
+      reset_application_state_to_default();
+      update_sidebar_auth_action();
+    }
   }
 
   if (loading_overlay) {
     loading_overlay.classList.remove('active');
   }
 });
+
+window.save_guest_data_to_google_account = async function () {
+  if (!pending_guest_upgrade_user || !pending_guest_upgrade_data) return;
+
+  const loading_overlay = document.getElementById('auth_loading_overlay');
+  const loading_text = document.getElementById('auth_loading_text');
+
+  loading_text.innerText = 'Saving local data...';
+  loading_overlay.classList.add('active');
+
+  try {
+    await save_guest_snapshot_to_firestore(pending_guest_upgrade_user, pending_guest_upgrade_data);
+    clear_guest_local_data();
+    document.getElementById('guest_upgrade_modal')?.classList.remove('active');
+    const user_to_continue = pending_guest_upgrade_user;
+    pending_guest_upgrade_user = null;
+    pending_guest_upgrade_data = null;
+    await start_authenticated_session(user_to_continue);
+  } catch (error) {
+    show_custom_alert('Unable to save local data to your Google account. Your guest data is still on this device.');
+  } finally {
+    loading_overlay.classList.remove('active');
+  }
+};
+
+window.discard_guest_data_after_google_sign_in = async function () {
+  if (!pending_guest_upgrade_user) return;
+
+  const loading_overlay = document.getElementById('auth_loading_overlay');
+  const loading_text = document.getElementById('auth_loading_text');
+  loading_text.innerText = 'Loading your account...';
+  loading_overlay.classList.add('active');
+
+  const user_to_continue = pending_guest_upgrade_user;
+  pending_guest_upgrade_user = null;
+  pending_guest_upgrade_data = null;
+  clear_guest_local_data();
+  document.getElementById('guest_upgrade_modal')?.classList.remove('active');
+  await start_authenticated_session(user_to_continue);
+  loading_overlay.classList.remove('active');
+};
 
 window.close_install_help = function () {
   document.getElementById('install_help_modal').classList.remove('active');
@@ -1752,7 +2068,14 @@ document.getElementById('install_help_btn')?.addEventListener('click', () => {
   document.getElementById('install_help_modal').classList.add('active');
 });
 
-window.addEventListener('resize', render_entire_application_interface);
+window.addEventListener('resize', () => {
+  update_guest_button_visibility();
+  render_entire_application_interface();
+});
+
+window.matchMedia('(display-mode: standalone)').addEventListener?.('change', update_guest_button_visibility);
+window.matchMedia('(display-mode: fullscreen)').addEventListener?.('change', update_guest_button_visibility);
+update_guest_button_visibility();
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
