@@ -35,6 +35,7 @@ const application_state = {
   weekly_schedule_slots: [],
   additional_extra_classes: [],
   attendance_records: [],
+  assignments: [],
   start_of_current_week: null,
   current_mobile_date_object: new Date(),
   mobile_view_mode: 'day',
@@ -81,10 +82,12 @@ async function load_saved_application_data() {
     application_state.additional_extra_classes =
       cloud_data.additional_extra_classes || [];
     application_state.attendance_records = cloud_data.attendance_records || [];
+    application_state.assignments = cloud_data.assignments || [];
   } else {
     save_current_application_data();
   }
   render_entire_application_interface();
+  render_assignments();
   setTimeout(scroll_interface_to_current_time_slot, 100);
 }
 
@@ -103,6 +106,7 @@ function save_current_application_data() {
       weekly_schedule_slots: application_state.weekly_schedule_slots,
       additional_extra_classes: application_state.additional_extra_classes,
       attendance_records: application_state.attendance_records,
+      assignments: application_state.assignments,
     },
     { merge: true },
   );
@@ -137,7 +141,9 @@ function reset_application_state_to_default() {
   application_state.weekly_schedule_slots = [];
   application_state.additional_extra_classes = [];
   application_state.attendance_records = [];
+  application_state.assignments = [];
   render_entire_application_interface();
+  render_assignments();
 }
 
 function calculate_monday_of_target_week(target_date_object) {
@@ -204,6 +210,142 @@ function gather_lectures_for_date(target_date_string, derived_day_name_string) {
   );
   return compiled_lectures_array;
 }
+
+window.switch_module = function (module_name) {
+  sessionStorage.setItem('active_module', module_name);
+  
+  document.querySelectorAll('.switcher-btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  document.querySelectorAll('.module-content').forEach(content => {
+    content.classList.add('hidden');
+    content.classList.remove('active');
+  });
+  
+  const active_btn = document.querySelector(`[data-target="module-${module_name}"]`);
+  const active_content = document.getElementById(`module-${module_name}`);
+  
+  if (active_btn) active_btn.classList.add('active');
+  if (active_content) {
+    active_content.classList.remove('hidden');
+    active_content.classList.add('active');
+  }
+
+  if (module_name === 'assignments') {
+    render_assignments();
+  }
+};
+
+window.render_assignments = function () {
+  const pending_list = document.getElementById('pending_assignments_list');
+  const completed_list = document.getElementById('completed_assignments_list');
+  if (!pending_list || !completed_list) return;
+
+  pending_list.innerHTML = '';
+  completed_list.innerHTML = '';
+
+  const filter_subject = document.getElementById('filter_subject').value;
+  const filter_priority = document.getElementById('filter_priority').value;
+  const filter_date = document.getElementById('filter_date').value;
+
+  let filtered_assignments = application_state.assignments.filter(assignment => {
+    if (filter_subject && assignment.parent_subject_identifier !== filter_subject) return false;
+    if (filter_priority && assignment.priority_level !== filter_priority) return false;
+    if (filter_date && assignment.due_date_string !== filter_date) return false;
+    return true;
+  });
+
+  filtered_assignments.sort((a, b) => new Date(a.due_date_string) - new Date(b.due_date_string));
+
+  let pending_count = 0;
+  let completed_count = 0;
+
+  filtered_assignments.forEach(assignment => {
+    const parent_subject = retrieve_subject_object_by_identifier(assignment.parent_subject_identifier);
+    if (!parent_subject) return;
+
+    const assignment_html = `
+      <div class="assignment-card" style="border-left-color: ${parent_subject.subject_color_hex || 'var(--accent)'}">
+        <div class="assignment-info">
+          <div class="assignment-title">${assignment.assignment_name}</div>
+          <div class="assignment-meta">
+            <span style="color: ${parent_subject.subject_color_hex || 'var(--accent)'}; font-weight: 600;">${parent_subject.subject_code_text}</span>
+            <span>Due: ${assignment.due_date_string}</span>
+            <span class="priority-badge priority-${assignment.priority_level}">${assignment.priority_level}</span>
+          </div>
+        </div>
+        <div class="assignment-actions">
+          <button class="btn ${assignment.completion_status === 'Pending' ? 'btn-secondary' : ''}" style="width: auto; padding: 6px 12px; font-size: 11px;" onclick="toggle_assignment_status('${assignment.assignment_identifier}')">
+            ${assignment.completion_status === 'Pending' ? 'Mark Done' : 'Undo'}
+          </button>
+          ${assignment.completion_status === 'Completed' ? `<button class="icon-btn delete-btn" onclick="delete_assignment('${assignment.assignment_identifier}')">✖</button>` : ''}
+        </div>
+      </div>
+    `;
+
+    if (assignment.completion_status === 'Pending') {
+      pending_list.innerHTML += assignment_html;
+      pending_count++;
+    } else {
+      completed_list.innerHTML += assignment_html;
+      completed_count++;
+    }
+  });
+
+  if (pending_count === 0) {
+    pending_list.innerHTML = `<div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 20px;">No pending assignments.</div>`;
+  }
+  if (completed_count === 0) {
+    completed_list.innerHTML = `<div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 20px;">No completed assignments.</div>`;
+  }
+};
+
+window.toggle_assignment_status = function(assignment_identifier) {
+  const assignment = application_state.assignments.find(a => a.assignment_identifier === assignment_identifier);
+  if (assignment) {
+    assignment.completion_status = assignment.completion_status === 'Pending' ? 'Completed' : 'Pending';
+    save_current_application_data();
+    render_assignments();
+  }
+};
+
+window.delete_assignment = function(assignment_identifier) {
+  show_custom_confirm(
+    'Delete this completed assignment? This action cannot be undone.',
+    () => {
+      application_state.assignments = application_state.assignments.filter(a => a.assignment_identifier !== assignment_identifier);
+      save_current_application_data();
+      render_assignments();
+    }
+  );
+};
+
+window.clear_assignment_filters = function() {
+  document.getElementById('filter_subject').value = '';
+  document.getElementById('filter_priority').value = '';
+  document.getElementById('filter_date').value = '';
+  render_assignments();
+};
+
+document.getElementById('assignment_input_form').addEventListener('submit', form_submit_event => {
+  form_submit_event.preventDefault();
+  
+  application_state.assignments.push({
+    assignment_identifier: generate_unique_random_identifier('asn'),
+    assignment_name: document.getElementById('assignment_name_input').value.trim(),
+    parent_subject_identifier: document.getElementById('assignment_subject_selection').value,
+    priority_level: document.getElementById('assignment_priority_selection').value,
+    due_date_string: document.getElementById('assignment_due_date_input').value,
+    completion_status: 'Pending',
+    reminder_configured: false,
+    reminder_threshold_minutes: 0
+  });
+
+  save_current_application_data();
+  render_assignments();
+  close_all_interface_modals();
+  document.getElementById('assignment_input_form').reset();
+});
 
 function render_entire_application_interface() {
   render_attendance_statistics_cards();
@@ -273,9 +415,9 @@ function render_attendance_statistics_cards() {
       }
 
       if (skippable_lecture_hours_count > 0) {
-        dynamic_target_text_output = `<span style="color: var(--present); font-weight: 600;">✔ Safe (Can skip ${skippable_lecture_hours_count} hrs)</span>`;
+        dynamic_target_text_output = `<span style="color: var(--present); font-weight: 600;">Safe (Can skip ${skippable_lecture_hours_count} hrs)</span>`;
       } else {
-        dynamic_target_text_output = `<span style="color: var(--present); font-weight: 600;">✔ Safe (Cannot skip any)</span>`;
+        dynamic_target_text_output = `<span style="color: var(--present); font-weight: 600;">Safe (Cannot skip any)</span>`;
       }
     } else {
       let required_lecture_hours_count = 0;
@@ -285,9 +427,9 @@ function render_attendance_statistics_cards() {
             total_present_hours_count) /
           (1 - target_dec),
         );
-        dynamic_target_text_output = `<span style="color: var(--cancelled); font-weight: 600;">⚠️ Need ${required_lecture_hours_count} lecture hrs</span>`;
+        dynamic_target_text_output = `<span style="color: var(--cancelled); font-weight: 600;">Need ${required_lecture_hours_count} lecture hrs</span>`;
       } else {
-        dynamic_target_text_output = `<span style="color: var(--cancelled); font-weight: 600;">⚠️ Cannot reach 100%</span>`;
+        dynamic_target_text_output = `<span style="color: var(--cancelled); font-weight: 600;">Cannot reach 100%</span>`;
       }
     }
 
@@ -598,8 +740,10 @@ window.navigate_mobile_to_today = function () {
 
 function render_mobile_interface() {
   const container = document.querySelector('.calendar-container');
-  document.getElementById('calendar_header_container').style.display = 'none';
-  document.getElementById('calendar_body_container').style.display = 'none';
+  if (document.getElementById('calendar_header_container')) document.getElementById('calendar_header_container').style.display = 'none';
+  if (document.getElementById('calendar_body_container')) document.getElementById('calendar_body_container').style.display = 'none';
+
+  if (!container) return;
 
   let mobile_container = document.getElementById('mobile_view_container');
   if (!mobile_container) {
@@ -833,7 +977,7 @@ function render_mobile_week_view(mobile_container) {
           <div class="compact-lecture-card" style="border-left-color: ${parent_subject_data.subject_color_hex || 'var(--accent)'}">
             <div class="compact-lecture-info">
               <strong style="color: ${parent_subject_data.subject_color_hex || 'var(--accent)'}; font-size: 13px;">${parent_subject_data.subject_code_text}</strong>
-              <span style="font-size: 11px; color: var(--text-muted); margin-top: 3px;">🕒 ${lecture_data.start_time_hour_value}:00 - ${lecture_data.start_time_hour_value + lecture_data.lecture_duration_value}:00</span>
+              <span style="font-size: 11px; color: var(--text-muted); margin-top: 3px;"> ${lecture_data.start_time_hour_value}:00 - ${lecture_data.start_time_hour_value + lecture_data.lecture_duration_value}:00</span>
             </div>
             <div class="compact-att-controls">
               <button class="compact-att-btn ${p_class}" style="${p_class ? 'background:var(--present); color:#000; border-color:var(--present);' : ''}" onclick="mark_specific_lecture_attendance_bulk('${att_identifier}', '${lecture_data.parent_subject_identifier}', '${loop_date_string}', ${lecture_data.start_time_hour_value}, ${lecture_data.lecture_duration_value}, 'P')">P</button>
@@ -853,6 +997,7 @@ function scroll_interface_to_current_time_slot() {
   const scrolling_container_element = document.querySelector(
     '.calendar-container',
   );
+  if (!scrolling_container_element) return;
   const current_system_hour_value = new Date().getHours();
 
   if (current_system_hour_value >= 8 && current_system_hour_value <= 17) {
@@ -872,14 +1017,25 @@ function update_dropdown_selection_options() {
   const extra_subject_dropdown_element = document.getElementById(
     'extra_subject_selection',
   );
+  const assignment_subject_selection = document.getElementById(
+    'assignment_subject_selection',
+  );
+  const filter_subject = document.getElementById('filter_subject');
+
   const generated_options_html_string = application_state.enrolled_subjects
     .map(
       subject_item =>
         `<option value="${subject_item.subject_identifier}">${subject_item.subject_name_text} (${subject_item.subject_code_text})</option>`,
     )
     .join('');
-  slot_subject_dropdown_element.innerHTML = generated_options_html_string;
-  extra_subject_dropdown_element.innerHTML = generated_options_html_string;
+    
+  if (slot_subject_dropdown_element) slot_subject_dropdown_element.innerHTML = generated_options_html_string;
+  if (extra_subject_dropdown_element) extra_subject_dropdown_element.innerHTML = generated_options_html_string;
+  if (assignment_subject_selection) assignment_subject_selection.innerHTML = generated_options_html_string;
+  
+  if (filter_subject) {
+    filter_subject.innerHTML = `<option value="">All Subjects</option>` + generated_options_html_string;
+  }
 }
 
 function initialize_color_selection_palette(
@@ -891,6 +1047,7 @@ function initialize_color_selection_palette(
   const subject_color_hidden_input_element = document.getElementById(
     'subject_color_input',
   );
+  if (!color_picker_container_element) return;
   color_picker_container_element.innerHTML = THEME_COLORS_ARRAY.map(
     color_hex_code =>
       `<div class="color-swatch ${color_hex_code === selected_color_hex_value ? 'selected' : ''}" style="background:${color_hex_code}" onclick="select_subject_color_swatch(this, '${color_hex_code}')"></div>`,
@@ -1055,7 +1212,7 @@ document
 
 window.delete_selected_subject_data = function (target_subject_identifier) {
   show_custom_confirm(
-    'Delete subject? This will remove all associated slots, extra classes, and attendance.',
+    'Delete subject? This will remove all associated slots, extra classes, assignments, and attendance.',
     () => {
       application_state.enrolled_subjects =
         application_state.enrolled_subjects.filter(
@@ -1079,8 +1236,15 @@ window.delete_selected_subject_data = function (target_subject_identifier) {
             attendance_item.parent_subject_identifier !==
             target_subject_identifier,
         );
+      application_state.assignments = 
+        application_state.assignments.filter(
+          assignment_item =>
+            assignment_item.parent_subject_identifier !== 
+            target_subject_identifier
+        );
       save_current_application_data();
       render_entire_application_interface();
+      render_assignments();
     },
   );
 };
@@ -1387,6 +1551,10 @@ onAuthStateChanged(auth_service_instance, async user => {
     initialize_color_selection_palette();
 
     await load_saved_application_data();
+    
+    const saved_module = sessionStorage.getItem('active_module') || 'attendance';
+    switch_module(saved_module);
+
   } else {
     current_logged_in_user = null;
 

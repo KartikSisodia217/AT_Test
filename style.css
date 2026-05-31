@@ -36,7 +36,6 @@ body {
 .sidebar {
   width: 280px;
   flex-shrink: 0;
-  
   background-color: var(--bg-sec);
   border-right: 1px solid var(--border);
   display: flex;
@@ -1141,5 +1140,152 @@ body {
 @media (display-mode: standalone) {
   .install-help-btn {
     display: none !important;
+  }
+}
+
+.module-switcher-container {
+  margin-bottom: 15px;
+}
+
+.module-switcher {
+  display: flex;
+  background: var(--bg-sec);
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.switcher-btn {
+  flex: 1;
+  padding: 10px 16px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: var(--font);
+}
+
+.switcher-btn.active {
+  background: var(--bg);
+  color: var(--accent);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border);
+}
+
+.module-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.module-content.active {
+  opacity: 1;
+}
+
+.filter-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.assignments-container {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-bottom: 20px;
+}
+
+.assignments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.assignment-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.assignment-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.assignment-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.assignment-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.priority-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.priority-High {
+  background: rgba(231, 76, 60, 0.15);
+  color: var(--absent);
+}
+
+.priority-Medium {
+  background: rgba(243, 156, 18, 0.15);
+  color: var(--cancelled);
+}
+
+.priority-Low {
+  background: rgba(46, 204, 113, 0.15);
+  color: var(--present);
+}
+
+.assignment-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 480px) {
+  .assignment-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .assignment-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .filter-controls {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+  .filter-controls .nav-btn {
+    width: 100%;
   }
 }

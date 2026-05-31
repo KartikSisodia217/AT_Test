@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Attendance Tracker</title>
+  <title>College Hub</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <link rel="icon" type="image/png" href="assets/logo.png">
@@ -20,7 +20,7 @@
   <div id="login_screen" class="login-screen hidden">
     <div class="login-box">
       <img src="assets/logo.png" alt="Logo" class="login-logo" onerror="this.style.display='none'">
-      <h1 class="login-title">Attendance Tracker</h1>
+      <h1 class="login-title">College Hub</h1>
       <p class="login-tagline">Track smarter. Stress less.</p>
       <button class="google-btn" onclick="handle_auth_click()">
         <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G" class="google-icon">
@@ -33,7 +33,7 @@
         <div class="install-help-box">
           <button class="install-close-btn" onclick="close_install_help()">✖</button>
 
-          <h3>Install Attendance Tracker</h3>
+          <h3>Install College Hub</h3>
 
           <div class="install-section">
             <strong>Android (Chrome/Brave/Opera)</strong>
@@ -61,8 +61,8 @@
 
     <aside class="sidebar">
       <div class="brand">
-        <span class="brand-text">Attendance Tracker</span>
-        
+        <span class="brand-text">College Hub</span>
+
         <button class="desktop-toggle-btn" onclick="toggle_desktop_sidebar()" title="Toggle Sidebar">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
             stroke-linecap="round" stroke-linejoin="round">
@@ -83,7 +83,6 @@
       <div class="section-title">Attendance Overview</div>
       <div class="stats-list" id="stats_list_container"></div>
 
-      
       <button class="user-logout-btn" onclick="handle_auth_click()" title="Logout">
         <svg class="logout-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
@@ -96,32 +95,77 @@
     </aside>
 
     <main class="main-area">
-      <div class="toolbar">
-        <div style="display: flex; align-items: center;">
-          <button class="mobile-menu-btn" onclick="toggle_mobile_sidebar()">☰</button>
-          <div class="nav-controls desktop-nav-controls">
-            <button class="nav-btn" onclick="open_desktop_date_picker()">Choose Date</button>
-            <input
-              type="date"
-              id="desktop_date_selection"
-              class="desktop-date-picker-input"
-              onchange="handleDesktopDateChange(this.value)"
-            />
-            <button class="nav-btn" onclick="navigate_calendar_weeks(-1)">◀ Prev</button>
-            <button class="nav-btn" onclick="navigate_to_current_week()">Today</button>
-            <button class="nav-btn" onclick="navigate_calendar_weeks(1)">Next ▶</button>
-            <h2 id="current_week_display_label">May 2026</h2>
-          </div>
-        </div>
-        <div style="display: flex; gap: 8px;">
-          <button class="nav-btn" onclick="open_interface_modal('weekly_slot_modal')">+ Add Weekly Slot</button>
-          <button class="nav-btn" onclick="open_interface_modal('extra_class_modal')">+ Add Extra Class</button>
+      
+      <div class="module-switcher-container">
+        <div class="module-switcher">
+          <button class="switcher-btn active" data-target="module-attendance" onclick="switch_module('attendance')">Attendance</button>
+          <button class="switcher-btn" data-target="module-assignments" onclick="switch_module('assignments')">Assignments</button>
         </div>
       </div>
 
-      <div class="calendar-container">
-        <div class="calendar-header" id="calendar_header_container"></div>
-        <div class="calendar-body" id="calendar_body_container"></div>
+      <div id="module-attendance" class="module-content active">
+        <div class="toolbar">
+          <div style="display: flex; align-items: center;">
+            <button class="mobile-menu-btn" onclick="toggle_mobile_sidebar()">☰</button>
+            <div class="nav-controls desktop-nav-controls">
+              <button class="nav-btn" onclick="open_desktop_date_picker()">Choose Date</button>
+              <input
+                type="date"
+                id="desktop_date_selection"
+                class="desktop-date-picker-input"
+                onchange="handleDesktopDateChange(this.value)"
+              />
+              <button class="nav-btn" onclick="navigate_calendar_weeks(-1)">◀ Prev</button>
+              <button class="nav-btn" onclick="navigate_to_current_week()">Today</button>
+              <button class="nav-btn" onclick="navigate_calendar_weeks(1)">Next ▶</button>
+              <h2 id="current_week_display_label">May 2026</h2>
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="nav-btn" onclick="open_interface_modal('weekly_slot_modal')">+ Add Weekly Slot</button>
+            <button class="nav-btn" onclick="open_interface_modal('extra_class_modal')">+ Add Extra Class</button>
+          </div>
+        </div>
+
+        <div class="calendar-container">
+          <div class="calendar-header" id="calendar_header_container"></div>
+          <div class="calendar-body" id="calendar_body_container"></div>
+        </div>
+      </div>
+
+      <div id="module-assignments" class="module-content hidden">
+        <div class="toolbar">
+          <div style="display: flex; align-items: center;">
+            <button class="mobile-menu-btn" onclick="toggle_mobile_sidebar()">☰</button>
+            <div class="filter-controls">
+              <select id="filter_subject" class="nav-btn" onchange="render_assignments()">
+                <option value="">All Subjects</option>
+              </select>
+              <select id="filter_priority" class="nav-btn" onchange="render_assignments()">
+                <option value="">All Priorities</option>
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+              </select>
+              <input type="date" id="filter_date" class="nav-btn" onchange="render_assignments()">
+              <button class="nav-btn" onclick="clear_assignment_filters()">Clear Filters</button>
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="nav-btn" onclick="open_interface_modal('add_assignment_modal')">+ Add Assignment</button>
+          </div>
+        </div>
+
+        <div class="assignments-container">
+          <div class="assignments-section">
+            <h3 class="section-title">Pending Assignments</h3>
+            <div id="pending_assignments_list" class="assignments-list"></div>
+          </div>
+          <div class="assignments-section">
+            <h3 class="section-title">Completed Assignments</h3>
+            <div id="completed_assignments_list" class="assignments-list"></div>
+          </div>
+        </div>
       </div>
     </main>
   </div>
@@ -213,6 +257,29 @@
           </select></div>
         <div class="modal-actions"><button type="button" class="btn btn-secondary"
             onclick="close_all_interface_modals()">Cancel</button><button type="submit" class="btn">Save</button></div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="add_assignment_modal">
+    <div class="modal-box">
+      <div class="modal-title">Add Assignment</div>
+      <form id="assignment_input_form">
+        <div class="form-group"><label>Name</label><input type="text" id="assignment_name_input" required></div>
+        <div class="form-group"><label>Subject</label><select id="assignment_subject_selection" required></select></div>
+        <div class="form-group">
+          <label>Priority</label>
+          <select id="assignment_priority_selection" required>
+            <option value="High">High</option>
+            <option value="Medium">Medium</option>
+            <option value="Low">Low</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Due Date</label><input type="date" id="assignment_due_date_input" required></div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" onclick="close_all_interface_modals()">Cancel</button>
+          <button type="submit" class="btn">Save</button>
+        </div>
       </form>
     </div>
   </div>
