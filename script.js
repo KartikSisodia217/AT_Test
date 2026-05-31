@@ -231,73 +231,118 @@ window.switch_module = function (module_name) {
     active_content.classList.add('active');
   }
 
+  render_attendance_statistics_cards();
+
   if (module_name === 'assignments') {
     render_assignments();
   }
 };
+
+function build_assignment_table_html(assignments_array, is_completed) {
+  if (assignments_array.length === 0) {
+    return `<div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 20px;">No ${is_completed ? 'completed' : 'pending'} assignments.</div>`;
+  }
+  
+  let table_html = `
+    <div class="table-responsive">
+      <table class="assignments-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Subject</th>
+            <th>Priority</th>
+            <th>Due Date</th>
+            <th>Time Remaining</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+  
+  const today_date = new Date();
+  today_date.setHours(0, 0, 0, 0);
+
+  assignments_array.forEach(assignment => {
+    const parent_subject = retrieve_subject_object_by_identifier(assignment.parent_subject_identifier);
+    if (!parent_subject) return;
+
+    const due_date = new Date(assignment.due_date_string);
+    due_date.setHours(0, 0, 0, 0);
+    const diff_days = Math.round((due_date - today_date) / 86400000);
+    
+    let time_remaining_text = '';
+    let is_overdue = false;
+
+    if (is_completed) {
+      time_remaining_text = '-';
+    } else if (diff_days < 0) {
+      time_remaining_text = `Overdue by ${Math.abs(diff_days)} day${Math.abs(diff_days) > 1 ? 's' : ''}`;
+      is_overdue = true;
+    } else if (diff_days === 0) {
+      time_remaining_text = 'Due Today';
+    } else if (diff_days === 1) {
+      time_remaining_text = 'Tomorrow';
+    } else {
+      time_remaining_text = `${diff_days} days left`;
+    }
+
+    const row_class = is_overdue && !is_completed ? 'overdue-row' : '';
+    const time_class = is_overdue && !is_completed ? 'overdue-text' : '';
+
+    table_html += `
+      <tr class="${row_class}">
+        <td style="font-weight: 500;">${assignment.assignment_name}</td>
+        <td>
+          <span class="subject-code" style="color: ${parent_subject.subject_color_hex || 'var(--accent)'}; background: ${parent_subject.subject_color_hex ? parent_subject.subject_color_hex + '1A' : 'rgba(124, 92, 255, 0.1)'};">
+            ${parent_subject.subject_code_text}
+          </span>
+        </td>
+        <td><span class="priority-badge priority-${assignment.priority_level}">${assignment.priority_level}</span></td>
+        <td style="color: var(--text-muted);">${assignment.due_date_string}</td>
+        <td><span class="${time_class}">${time_remaining_text}</span></td>
+        <td><span style="color: var(--text-muted);">${assignment.completion_status}</span></td>
+        <td>
+          <div style="display: flex; gap: 6px;">
+            <button class="btn ${assignment.completion_status === 'Pending' ? 'btn-secondary' : ''}" style="width: auto; padding: 6px 12px; font-size: 11px;" onclick="toggle_assignment_status('${assignment.assignment_identifier}')">
+              ${assignment.completion_status === 'Pending' ? 'Mark Done' : 'Undo'}
+            </button>
+            ${assignment.completion_status === 'Completed' ? `<button class="icon-btn delete-btn" style="margin-left: 0;" onclick="delete_assignment('${assignment.assignment_identifier}')">✖</button>` : ''}
+          </div>
+        </td>
+      </tr>
+    `;
+  });
+  
+  table_html += `
+        </tbody>
+      </table>
+    </div>
+  `;
+  return table_html;
+}
 
 window.render_assignments = function () {
   const pending_list = document.getElementById('pending_assignments_list');
   const completed_list = document.getElementById('completed_assignments_list');
   if (!pending_list || !completed_list) return;
 
-  pending_list.innerHTML = '';
-  completed_list.innerHTML = '';
-
   const filter_subject = document.getElementById('filter_subject').value;
   const filter_priority = document.getElementById('filter_priority').value;
-  const filter_date = document.getElementById('filter_date').value;
 
   let filtered_assignments = application_state.assignments.filter(assignment => {
     if (filter_subject && assignment.parent_subject_identifier !== filter_subject) return false;
     if (filter_priority && assignment.priority_level !== filter_priority) return false;
-    if (filter_date && assignment.due_date_string !== filter_date) return false;
     return true;
   });
 
   filtered_assignments.sort((a, b) => new Date(a.due_date_string) - new Date(b.due_date_string));
 
-  let pending_count = 0;
-  let completed_count = 0;
+  const pending_assignments = filtered_assignments.filter(a => a.completion_status === 'Pending');
+  const completed_assignments = filtered_assignments.filter(a => a.completion_status === 'Completed');
 
-  filtered_assignments.forEach(assignment => {
-    const parent_subject = retrieve_subject_object_by_identifier(assignment.parent_subject_identifier);
-    if (!parent_subject) return;
-
-    const assignment_html = `
-      <div class="assignment-card" style="border-left-color: ${parent_subject.subject_color_hex || 'var(--accent)'}">
-        <div class="assignment-info">
-          <div class="assignment-title">${assignment.assignment_name}</div>
-          <div class="assignment-meta">
-            <span style="color: ${parent_subject.subject_color_hex || 'var(--accent)'}; font-weight: 600;">${parent_subject.subject_code_text}</span>
-            <span>Due: ${assignment.due_date_string}</span>
-            <span class="priority-badge priority-${assignment.priority_level}">${assignment.priority_level}</span>
-          </div>
-        </div>
-        <div class="assignment-actions">
-          <button class="btn ${assignment.completion_status === 'Pending' ? 'btn-secondary' : ''}" style="width: auto; padding: 6px 12px; font-size: 11px;" onclick="toggle_assignment_status('${assignment.assignment_identifier}')">
-            ${assignment.completion_status === 'Pending' ? 'Mark Done' : 'Undo'}
-          </button>
-          ${assignment.completion_status === 'Completed' ? `<button class="icon-btn delete-btn" onclick="delete_assignment('${assignment.assignment_identifier}')">✖</button>` : ''}
-        </div>
-      </div>
-    `;
-
-    if (assignment.completion_status === 'Pending') {
-      pending_list.innerHTML += assignment_html;
-      pending_count++;
-    } else {
-      completed_list.innerHTML += assignment_html;
-      completed_count++;
-    }
-  });
-
-  if (pending_count === 0) {
-    pending_list.innerHTML = `<div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 20px;">No pending assignments.</div>`;
-  }
-  if (completed_count === 0) {
-    completed_list.innerHTML = `<div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 20px;">No completed assignments.</div>`;
-  }
+  pending_list.innerHTML = build_assignment_table_html(pending_assignments, false);
+  completed_list.innerHTML = build_assignment_table_html(completed_assignments, true);
 };
 
 window.toggle_assignment_status = function(assignment_identifier) {
@@ -306,6 +351,7 @@ window.toggle_assignment_status = function(assignment_identifier) {
     assignment.completion_status = assignment.completion_status === 'Pending' ? 'Completed' : 'Pending';
     save_current_application_data();
     render_assignments();
+    render_attendance_statistics_cards();
   }
 };
 
@@ -316,6 +362,7 @@ window.delete_assignment = function(assignment_identifier) {
       application_state.assignments = application_state.assignments.filter(a => a.assignment_identifier !== assignment_identifier);
       save_current_application_data();
       render_assignments();
+      render_attendance_statistics_cards();
     }
   );
 };
@@ -323,7 +370,6 @@ window.delete_assignment = function(assignment_identifier) {
 window.clear_assignment_filters = function() {
   document.getElementById('filter_subject').value = '';
   document.getElementById('filter_priority').value = '';
-  document.getElementById('filter_date').value = '';
   render_assignments();
 };
 
@@ -343,6 +389,7 @@ document.getElementById('assignment_input_form').addEventListener('submit', form
 
   save_current_application_data();
   render_assignments();
+  render_attendance_statistics_cards();
   close_all_interface_modals();
   document.getElementById('assignment_input_form').reset();
 });
@@ -361,75 +408,126 @@ function render_attendance_statistics_cards() {
   const statistics_list_container = document.getElementById(
     'stats_list_container',
   );
+  if (!statistics_list_container) return;
+  
   statistics_list_container.innerHTML = '';
+  const active_module = sessionStorage.getItem('active_module') || 'attendance';
 
   application_state.enrolled_subjects.forEach(current_subject_data => {
-    let total_present_hours_count = 0;
-    let total_scheduled_hours_count = 0;
-    let total_cancelled_hours_count = 0;
+    let card_content_html = '';
 
-    const target_val = current_subject_data.target_percentage || 75;
-    const target_dec = target_val / 100;
+    if (active_module === 'attendance') {
+      let total_present_hours_count = 0;
+      let total_scheduled_hours_count = 0;
+      let total_cancelled_hours_count = 0;
 
-    application_state.attendance_records.forEach(attendance_record_item => {
-      if (
-        attendance_record_item.parent_subject_identifier ===
-        current_subject_data.subject_identifier
-      ) {
-        attendance_record_item.lecture_status_array.forEach(
-          attendance_status_value => {
-            if (attendance_status_value === 'P') {
-              total_present_hours_count++;
-              total_scheduled_hours_count++;
-            } else if (attendance_status_value === 'A') {
-              total_scheduled_hours_count++;
-            } else if (attendance_status_value === 'C') {
-              total_cancelled_hours_count++;
-            }
-          },
-        );
-      }
-    });
+      const target_val = current_subject_data.target_percentage || 75;
+      const target_dec = target_val / 100;
 
-    const calculated_attendance_percentage =
-      total_scheduled_hours_count === 0
-        ? 0
-        : (
-          (total_present_hours_count / total_scheduled_hours_count) *
-          100
-        ).toFixed(1);
-    let dynamic_target_text_output = '';
+      application_state.attendance_records.forEach(attendance_record_item => {
+        if (
+          attendance_record_item.parent_subject_identifier ===
+          current_subject_data.subject_identifier
+        ) {
+          attendance_record_item.lecture_status_array.forEach(
+            attendance_status_value => {
+              if (attendance_status_value === 'P') {
+                total_present_hours_count++;
+                total_scheduled_hours_count++;
+              } else if (attendance_status_value === 'A') {
+                total_scheduled_hours_count++;
+              } else if (attendance_status_value === 'C') {
+                total_cancelled_hours_count++;
+              }
+            },
+          );
+        }
+      });
 
-    if (total_scheduled_hours_count === 0) {
-      dynamic_target_text_output = `<span style="color: var(--text-muted);">No classes yet</span>`;
-    } else if (calculated_attendance_percentage >= target_val) {
-      let skippable_lecture_hours_count = 0;
-      if (target_dec > 0) {
-        skippable_lecture_hours_count = Math.floor(
-          (total_present_hours_count -
-            target_dec * total_scheduled_hours_count) /
-          target_dec,
-        );
+      const calculated_attendance_percentage =
+        total_scheduled_hours_count === 0
+          ? 0
+          : (
+            (total_present_hours_count / total_scheduled_hours_count) *
+            100
+          ).toFixed(1);
+      let dynamic_target_text_output = '';
+
+      if (total_scheduled_hours_count === 0) {
+        dynamic_target_text_output = `<span style="color: var(--text-muted);">No classes yet</span>`;
+      } else if (calculated_attendance_percentage >= target_val) {
+        let skippable_lecture_hours_count = 0;
+        if (target_dec > 0) {
+          skippable_lecture_hours_count = Math.floor(
+            (total_present_hours_count -
+              target_dec * total_scheduled_hours_count) /
+            target_dec,
+          );
+        } else {
+          skippable_lecture_hours_count = 999;
+        }
+
+        if (skippable_lecture_hours_count > 0) {
+          dynamic_target_text_output = `<span style="color: var(--present); font-weight: 600;">Safe (Can skip ${skippable_lecture_hours_count} hrs)</span>`;
+        } else {
+          dynamic_target_text_output = `<span style="color: var(--present); font-weight: 600;">Safe (Cannot skip any)</span>`;
+        }
       } else {
-        skippable_lecture_hours_count = 999;
+        let required_lecture_hours_count = 0;
+        if (target_dec < 1) {
+          required_lecture_hours_count = Math.ceil(
+            (target_dec * total_scheduled_hours_count -
+              total_present_hours_count) /
+            (1 - target_dec),
+          );
+          dynamic_target_text_output = `<span style="color: var(--cancelled); font-weight: 600;">Need ${required_lecture_hours_count} lecture hrs</span>`;
+        } else {
+          dynamic_target_text_output = `<span style="color: var(--cancelled); font-weight: 600;">Cannot reach 100%</span>`;
+        }
       }
 
-      if (skippable_lecture_hours_count > 0) {
-        dynamic_target_text_output = `<span style="color: var(--present); font-weight: 600;">Safe (Can skip ${skippable_lecture_hours_count} hrs)</span>`;
-      } else {
-        dynamic_target_text_output = `<span style="color: var(--present); font-weight: 600;">Safe (Cannot skip any)</span>`;
-      }
+      card_content_html = `
+        <div class="stat-row"><span>Present:</span> <span>${total_present_hours_count}</span></div>
+        <div class="stat-row"><span>Total:</span> <span>${total_scheduled_hours_count}</span></div>
+        <div class="stat-row"><span>Target:</span> <span>${target_val}%</span></div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 8px;">
+          <div class="stat-perc" style="color: ${current_subject_data.subject_color_hex || 'var(--accent)'}; margin-top: 0;">${calculated_attendance_percentage}%</div>
+          <div class="target-text-output" style="font-size: 10px;">${dynamic_target_text_output}</div>
+        </div>
+      `;
     } else {
-      let required_lecture_hours_count = 0;
-      if (target_dec < 1) {
-        required_lecture_hours_count = Math.ceil(
-          (target_dec * total_scheduled_hours_count -
-            total_present_hours_count) /
-          (1 - target_dec),
-        );
-        dynamic_target_text_output = `<span style="color: var(--cancelled); font-weight: 600;">Need ${required_lecture_hours_count} lecture hrs</span>`;
+      let total_assignments_count = 0;
+      let due_soon_count = 0;
+      let overdue_count = 0;
+
+      const today_date = new Date();
+      today_date.setHours(0, 0, 0, 0);
+
+      application_state.assignments.forEach(assignment => {
+        if (assignment.parent_subject_identifier === current_subject_data.subject_identifier) {
+          total_assignments_count++;
+          if (assignment.completion_status === 'Pending') {
+            const due_date = new Date(assignment.due_date_string);
+            due_date.setHours(0, 0, 0, 0);
+            const diff_days = Math.round((due_date - today_date) / 86400000);
+            
+            if (diff_days < 0) {
+              overdue_count++;
+            } else if (diff_days >= 0 && diff_days <= 2) {
+              due_soon_count++;
+            }
+          }
+        }
+      });
+
+      if (total_assignments_count === 0) {
+        card_content_html = `<div style="color: var(--text-muted); padding: 10px 0; font-size: 12px; text-align: center;">No Assignments</div>`;
       } else {
-        dynamic_target_text_output = `<span style="color: var(--cancelled); font-weight: 600;">Cannot reach 100%</span>`;
+        card_content_html = `
+          <div class="stat-row"><span>Total Assignments:</span> <span>${total_assignments_count}</span></div>
+          <div class="stat-row"><span>Due Soon:</span> <span style="color: var(--cancelled); font-weight: 600;">${due_soon_count}</span></div>
+          <div class="stat-row"><span>Overdue:</span> <span style="color: var(--absent); font-weight: 600;">${overdue_count}</span></div>
+        `;
       }
     }
 
@@ -443,13 +541,7 @@ function render_attendance_statistics_cards() {
             <button class="icon-btn delete-btn" onclick="delete_selected_subject_data('${current_subject_data.subject_identifier}')" title="Delete Subject">✖</button>
           </div>
         </div>
-        <div class="stat-row"><span>Present:</span> <span>${total_present_hours_count}</span></div>
-        <div class="stat-row"><span>Total:</span> <span>${total_scheduled_hours_count}</span></div>
-        <div class="stat-row"><span>Target:</span> <span>${target_val}%</span></div>
-        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 8px;">
-          <div class="stat-perc" style="color: ${current_subject_data.subject_color_hex || 'var(--accent)'}; margin-top: 0;">${calculated_attendance_percentage}%</div>
-          <div class="target-text-output" style="font-size: 10px;">${dynamic_target_text_output}</div>
-        </div>
+        ${card_content_html}
       </div>
     `;
   });
@@ -922,8 +1014,6 @@ function render_mobile_week_view(mobile_container) {
       <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0 12px;">
         <div style="display: flex; align-items: center; gap: 4px;">
           <h3 style="font-size: 14px; font-weight: 600; color: var(--text);">Week of ${week_start_label}</h3>
-          
-          
         </div>
         ${!is_current_week ? `<button class="nav-btn" style="padding: 4px 10px; font-size: 11px;" onclick="navigate_mobile_to_today()">Current Week</button>` : ''}
       </div>
@@ -1207,6 +1297,7 @@ document
 
     save_current_application_data();
     render_entire_application_interface();
+    render_assignments();
     close_all_interface_modals();
   });
 

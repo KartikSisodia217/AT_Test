@@ -76,11 +76,18 @@
         <div class="user-welcome" id="user_welcome_text">Welcome</div>
       </div>
 
+      <div class="module-switcher-container">
+        <div class="module-switcher">
+          <button class="switcher-btn active" data-target="module-attendance" onclick="switch_module('attendance')">Attendance</button>
+          <button class="switcher-btn" data-target="module-assignments" onclick="switch_module('assignments')">Assignments</button>
+        </div>
+      </div>
+
       <button class="btn" onclick="open_add_subject_modal()">
         <span>+</span> <span class="btn-text">Add Subject</span>
       </button>
 
-      <div class="section-title">Attendance Overview</div>
+      <div class="section-title">Overview</div>
       <div class="stats-list" id="stats_list_container"></div>
 
       <button class="user-logout-btn" onclick="handle_auth_click()" title="Logout">
@@ -95,13 +102,6 @@
     </aside>
 
     <main class="main-area">
-      
-      <div class="module-switcher-container">
-        <div class="module-switcher">
-          <button class="switcher-btn active" data-target="module-attendance" onclick="switch_module('attendance')">Attendance</button>
-          <button class="switcher-btn" data-target="module-assignments" onclick="switch_module('assignments')">Assignments</button>
-        </div>
-      </div>
 
       <div id="module-attendance" class="module-content active">
         <div class="toolbar">
@@ -147,7 +147,6 @@
                 <option value="Medium">Medium</option>
                 <option value="Low">Low</option>
               </select>
-              <input type="date" id="filter_date" class="nav-btn" onchange="render_assignments()">
               <button class="nav-btn" onclick="clear_assignment_filters()">Clear Filters</button>
             </div>
           </div>

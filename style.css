@@ -813,7 +813,8 @@ body {
   .sidebar.collapsed .stat-perc,
   .sidebar.collapsed .target-text-output,
   .sidebar.collapsed .edit-btn,
-  .sidebar.collapsed .delete-btn {
+  .sidebar.collapsed .delete-btn,
+  .sidebar.collapsed .module-switcher-container {
     display: none !important;
   }
 
@@ -960,7 +961,7 @@ body {
 .user-profile {
   display: flex;
   flex-direction: column;
-  margin-bottom: 20px;
+  margin-bottom: 15px;
   padding: 0 4px;
 }
 
@@ -1145,11 +1146,12 @@ body {
 
 .module-switcher-container {
   margin-bottom: 15px;
+  width: 100%;
 }
 
 .module-switcher {
   display: flex;
-  background: var(--bg-sec);
+  background: var(--bg);
   padding: 4px;
   border-radius: 8px;
   border: 1px solid var(--border);
@@ -1161,7 +1163,7 @@ body {
   background: transparent;
   border: none;
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   border-radius: 6px;
   cursor: pointer;
@@ -1170,7 +1172,7 @@ body {
 }
 
 .switcher-btn.active {
-  background: var(--bg);
+  background: var(--bg-sec);
   color: var(--accent);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   border: 1px solid var(--border);
@@ -1205,41 +1207,11 @@ body {
   padding-bottom: 20px;
 }
 
-.assignments-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.assignment-card {
-  background: var(--bg);
+.assignments-section {
+  background: var(--bg-sec);
   border: 1px solid var(--border);
-  border-left-width: 4px;
   border-radius: 8px;
-  padding: 14px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.assignment-info {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.assignment-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.assignment-meta {
-  font-size: 12px;
-  color: var(--text-muted);
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  padding: 15px;
 }
 
 .priority-badge {
@@ -1264,22 +1236,51 @@ body {
   color: var(--present);
 }
 
-.assignment-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.assignments-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  text-align: left;
+}
+
+.assignments-table th {
+  padding: 12px;
+  color: var(--text-muted);
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.assignments-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.assignments-table tbody tr {
+  background: var(--bg);
+  transition: background 0.2s;
+}
+
+.assignments-table tbody tr:hover {
+  background: var(--bg-sec);
+}
+
+.overdue-row td {
+  background: rgba(231, 76, 60, 0.05) !important;
+}
+
+.overdue-text {
+  color: var(--absent);
+  font-weight: 600;
 }
 
 @media (max-width: 480px) {
-  .assignment-card {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
-  .assignment-actions {
-    width: 100%;
-    justify-content: flex-end;
-  }
   .filter-controls {
     flex-direction: column;
     align-items: stretch;
