@@ -137,18 +137,6 @@
         <div class="toolbar">
           <div style="display: flex; align-items: center;">
             <button class="mobile-menu-btn" onclick="toggle_mobile_sidebar()">☰</button>
-            <div class="filter-controls">
-              <select id="filter_subject" class="nav-btn" onchange="render_assignments()">
-                <option value="">All Subjects</option>
-              </select>
-              <select id="filter_priority" class="nav-btn" onchange="render_assignments()">
-                <option value="">All Priorities</option>
-                <option value="High">High</option>
-                <option value="Medium">Medium</option>
-                <option value="Low">Low</option>
-              </select>
-              <button class="nav-btn" onclick="clear_assignment_filters()">Clear Filters</button>
-            </div>
           </div>
           <div style="display: flex; gap: 8px;">
             <button class="nav-btn" onclick="open_interface_modal('add_assignment_modal')">+ Add Assignment</button>

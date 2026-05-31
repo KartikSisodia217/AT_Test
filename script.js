@@ -325,24 +325,32 @@ function build_assignment_table_html(assignments_array, is_completed) {
 window.render_assignments = function () {
   const pending_list = document.getElementById('pending_assignments_list');
   const completed_list = document.getElementById('completed_assignments_list');
+
   if (!pending_list || !completed_list) return;
 
-  const filter_subject = document.getElementById('filter_subject').value;
-  const filter_priority = document.getElementById('filter_priority').value;
+  let assignments_to_render = [...application_state.assignments];
 
-  let filtered_assignments = application_state.assignments.filter(assignment => {
-    if (filter_subject && assignment.parent_subject_identifier !== filter_subject) return false;
-    if (filter_priority && assignment.priority_level !== filter_priority) return false;
-    return true;
-  });
+  assignments_to_render.sort(
+    (a, b) => new Date(a.due_date_string) - new Date(b.due_date_string)
+  );
 
-  filtered_assignments.sort((a, b) => new Date(a.due_date_string) - new Date(b.due_date_string));
+  const pending_assignments = assignments_to_render.filter(
+    a => a.completion_status === 'Pending'
+  );
 
-  const pending_assignments = filtered_assignments.filter(a => a.completion_status === 'Pending');
-  const completed_assignments = filtered_assignments.filter(a => a.completion_status === 'Completed');
+  const completed_assignments = assignments_to_render.filter(
+    a => a.completion_status === 'Completed'
+  );
 
-  pending_list.innerHTML = build_assignment_table_html(pending_assignments, false);
-  completed_list.innerHTML = build_assignment_table_html(completed_assignments, true);
+  pending_list.innerHTML = build_assignment_table_html(
+    pending_assignments,
+    false
+  );
+
+  completed_list.innerHTML = build_assignment_table_html(
+    completed_assignments,
+    true
+  );
 };
 
 window.toggle_assignment_status = function (assignment_identifier) {
@@ -367,11 +375,7 @@ window.delete_assignment = function (assignment_identifier) {
   );
 };
 
-window.clear_assignment_filters = function () {
-  document.getElementById('filter_subject').value = '';
-  document.getElementById('filter_priority').value = '';
-  render_assignments();
-};
+
 
 document.getElementById('assignment_input_form').addEventListener('submit', form_submit_event => {
   form_submit_event.preventDefault();
@@ -1109,7 +1113,6 @@ function update_dropdown_selection_options() {
   const assignment_subject_selection = document.getElementById(
     'assignment_subject_selection',
   );
-  const filter_subject = document.getElementById('filter_subject');
 
   const generated_options_html_string = application_state.enrolled_subjects
     .map(
@@ -1121,10 +1124,6 @@ function update_dropdown_selection_options() {
   if (slot_subject_dropdown_element) slot_subject_dropdown_element.innerHTML = generated_options_html_string;
   if (extra_subject_dropdown_element) extra_subject_dropdown_element.innerHTML = generated_options_html_string;
   if (assignment_subject_selection) assignment_subject_selection.innerHTML = generated_options_html_string;
-
-  if (filter_subject) {
-    filter_subject.innerHTML = `<option value="">All Subjects</option>` + generated_options_html_string;
-  }
 }
 
 function initialize_color_selection_palette(
