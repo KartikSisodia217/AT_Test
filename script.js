@@ -59,6 +59,7 @@ let is_guest_user = false;
 let firestore_unsubscribers = [];
 let pending_guest_upgrade_user = null;
 let pending_guest_upgrade_data = null;
+let deferred_install_prompt_event = null;
 
 const WEEK_DAYS_ARRAY = [
   'Monday',
@@ -96,6 +97,31 @@ function is_running_as_installed_pwa() {
   return window.matchMedia('(display-mode: standalone)').matches ||
     window.matchMedia('(display-mode: fullscreen)').matches ||
     window.navigator.standalone === true;
+}
+
+function is_iphone_safari_browser() {
+  const user_agent = window.navigator.userAgent || '';
+  const is_ios_device = /iPad|iPhone|iPod/.test(user_agent) ||
+    (window.navigator.platform === 'MacIntel' && window.navigator.maxTouchPoints > 1);
+  const is_safari_browser = /Safari/i.test(user_agent) &&
+    !/CriOS|FxiOS|EdgiOS|OPiOS|Chrome|Android/i.test(user_agent);
+
+  return is_ios_device && is_safari_browser;
+}
+
+function update_install_app_button_visibility() {
+  const install_app_button = document.getElementById('install_app_btn');
+  if (!install_app_button) return;
+
+  if (
+    deferred_install_prompt_event &&
+    !is_iphone_safari_browser() &&
+    !is_running_as_installed_pwa()
+  ) {
+    install_app_button.classList.remove('hidden');
+  } else {
+    install_app_button.classList.add('hidden');
+  }
 }
 
 function update_guest_button_visibility() {
@@ -2076,18 +2102,51 @@ window.close_install_help = function () {
   document.getElementById('install_help_modal').classList.remove('active');
 };
 
+window.install_college_tracker_app = async function () {
+  if (!deferred_install_prompt_event || is_iphone_safari_browser()) {
+    update_install_app_button_visibility();
+    return;
+  }
+
+  const install_prompt_event = deferred_install_prompt_event;
+  deferred_install_prompt_event = null;
+  update_install_app_button_visibility();
+
+  install_prompt_event.prompt();
+
+  try {
+    await install_prompt_event.userChoice;
+  } finally {
+    update_install_app_button_visibility();
+  }
+};
+
 document.getElementById('install_help_btn')?.addEventListener('click', () => {
+  update_install_app_button_visibility();
   document.getElementById('install_help_modal').classList.add('active');
+});
+
+window.addEventListener('beforeinstallprompt', install_prompt_event => {
+  install_prompt_event.preventDefault();
+  deferred_install_prompt_event = install_prompt_event;
+  update_install_app_button_visibility();
+});
+
+window.addEventListener('appinstalled', () => {
+  deferred_install_prompt_event = null;
+  update_install_app_button_visibility();
 });
 
 window.addEventListener('resize', () => {
   update_guest_button_visibility();
+  update_install_app_button_visibility();
   render_entire_application_interface();
 });
 
 window.matchMedia('(display-mode: standalone)').addEventListener?.('change', update_guest_button_visibility);
 window.matchMedia('(display-mode: fullscreen)').addEventListener?.('change', update_guest_button_visibility);
 update_guest_button_visibility();
+update_install_app_button_visibility();
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
