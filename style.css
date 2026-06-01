@@ -1184,6 +1184,12 @@ body {
   opacity: 0.55;
 }
 
+.install-primary-btn.installed:disabled {
+  background: var(--present);
+  color: #000;
+  opacity: 1;
+}
+
 .install-steps {
   list-style: none;
   display: flex;
