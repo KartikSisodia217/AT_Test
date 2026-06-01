@@ -21,7 +21,6 @@ import {
 
 const GUEST_STORAGE_KEY = 'college_tracker_guest_data_v1';
 const GUEST_SESSION_KEY = 'college_tracker_guest_session_active';
-const INSTALL_STATUS_STORAGE_KEY = 'college_tracker_pwa_installed';
 
 function create_default_user_preferences() {
   return { default_module: 'attendance', open_sidebar_on_startup: true };
@@ -111,41 +110,10 @@ function is_android_install_platform() {
 }
 
 function get_install_help_platform() {
+  if (is_running_as_installed_pwa()) return null;
   if (is_ios_install_platform()) return 'ios';
   if (is_android_install_platform()) return 'android';
   return null;
-}
-
-function is_pwa_marked_as_installed() {
-  return localStorage.getItem(INSTALL_STATUS_STORAGE_KEY) === 'true' ||
-    is_running_as_installed_pwa();
-}
-
-function mark_pwa_as_installed() {
-  localStorage.setItem(INSTALL_STATUS_STORAGE_KEY, 'true');
-}
-
-function mark_pwa_as_installable() {
-  localStorage.removeItem(INSTALL_STATUS_STORAGE_KEY);
-}
-
-async function refresh_pwa_related_install_status() {
-  if (!is_android_install_platform() || !('getInstalledRelatedApps' in navigator)) return;
-
-  try {
-    const related_apps = await navigator.getInstalledRelatedApps();
-    const has_installed_web_app = related_apps.some(app_item => app_item.platform === 'webapp');
-
-    if (has_installed_web_app) {
-      mark_pwa_as_installed();
-    } else if (!deferred_install_prompt_event) {
-      mark_pwa_as_installable();
-    }
-
-    update_install_app_button_visibility();
-  } catch (error) {
-    update_install_app_button_visibility();
-  }
 }
 
 function update_install_app_button_visibility() {
@@ -167,13 +135,9 @@ function update_install_app_button_visibility() {
 
   if (!install_app_button) return;
 
-  const is_installed = install_platform === 'android' && is_pwa_marked_as_installed();
   const can_show_native_prompt = install_platform === 'android' &&
-    !is_installed &&
     Boolean(deferred_install_prompt_event);
 
-  install_app_button.innerText = is_installed ? 'App installed' : 'Install App';
-  install_app_button.classList.toggle('installed', is_installed);
   install_app_button.disabled = !can_show_native_prompt;
   install_app_button.setAttribute('aria-disabled', String(!can_show_native_prompt));
 }
@@ -2169,10 +2133,7 @@ window.install_college_tracker_app = async function () {
   install_prompt_event.prompt();
 
   try {
-    const install_choice = await install_prompt_event.userChoice;
-    if (install_choice?.outcome === 'accepted') {
-      mark_pwa_as_installed();
-    }
+    await install_prompt_event.userChoice;
   } finally {
     update_install_app_button_visibility();
   }
@@ -2186,23 +2147,13 @@ document.getElementById('install_help_btn')?.addEventListener('click', () => {
 
 window.addEventListener('beforeinstallprompt', install_prompt_event => {
   install_prompt_event.preventDefault();
-  mark_pwa_as_installable();
   deferred_install_prompt_event = install_prompt_event;
   update_install_app_button_visibility();
 });
 
 window.addEventListener('appinstalled', () => {
-  mark_pwa_as_installed();
   deferred_install_prompt_event = null;
   update_install_app_button_visibility();
-});
-
-window.addEventListener('focus', refresh_pwa_related_install_status);
-
-document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) {
-    refresh_pwa_related_install_status();
-  }
 });
 
 window.addEventListener('resize', () => {
@@ -2221,7 +2172,6 @@ window.matchMedia('(display-mode: fullscreen)').addEventListener?.('change', () 
 });
 update_guest_button_visibility();
 update_install_app_button_visibility();
-refresh_pwa_related_install_status();
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

@@ -1,18 +1,10 @@
 {
   "name": "College Tracker",
   "short_name": "CT-Test",
-  "id": "/",
   "start_url": "/",
-  "scope": "/",
   "display": "standalone",
   "background_color": "#0f1117",
   "theme_color": "#0f1117",
-  "related_applications": [
-    {
-      "platform": "webapp",
-      "id": "/"
-    }
-  ],
   "icons": [
     {
       "src": "assets/icon-192.png",
