@@ -99,29 +99,47 @@ function is_running_as_installed_pwa() {
     window.navigator.standalone === true;
 }
 
-function is_iphone_safari_browser() {
+function is_ios_install_platform() {
   const user_agent = window.navigator.userAgent || '';
-  const is_ios_device = /iPad|iPhone|iPod/.test(user_agent) ||
+  return /iPad|iPhone|iPod/.test(user_agent) ||
     (window.navigator.platform === 'MacIntel' && window.navigator.maxTouchPoints > 1);
-  const is_safari_browser = /Safari/i.test(user_agent) &&
-    !/CriOS|FxiOS|EdgiOS|OPiOS|Chrome|Android/i.test(user_agent);
+}
 
-  return is_ios_device && is_safari_browser;
+function is_android_install_platform() {
+  return /Android/i.test(window.navigator.userAgent || '');
+}
+
+function get_install_help_platform() {
+  if (is_running_as_installed_pwa()) return null;
+  if (is_ios_install_platform()) return 'ios';
+  if (is_android_install_platform()) return 'android';
+  return null;
 }
 
 function update_install_app_button_visibility() {
+  const install_help_button = document.getElementById('install_help_btn');
+  const install_help_modal = document.getElementById('install_help_modal');
+  const android_content = document.getElementById('install_android_content');
+  const ios_content = document.getElementById('install_ios_content');
   const install_app_button = document.getElementById('install_app_btn');
+  const install_platform = get_install_help_platform();
+
+  install_help_button?.classList.toggle('hidden', !install_platform);
+
+  if (!install_platform) {
+    install_help_modal?.classList.remove('active');
+  }
+
+  android_content?.classList.toggle('hidden', install_platform !== 'android');
+  ios_content?.classList.toggle('hidden', install_platform !== 'ios');
+
   if (!install_app_button) return;
 
-  if (
-    deferred_install_prompt_event &&
-    !is_iphone_safari_browser() &&
-    !is_running_as_installed_pwa()
-  ) {
-    install_app_button.classList.remove('hidden');
-  } else {
-    install_app_button.classList.add('hidden');
-  }
+  const can_show_native_prompt = install_platform === 'android' &&
+    Boolean(deferred_install_prompt_event);
+
+  install_app_button.disabled = !can_show_native_prompt;
+  install_app_button.setAttribute('aria-disabled', String(!can_show_native_prompt));
 }
 
 function update_guest_button_visibility() {
@@ -2103,7 +2121,7 @@ window.close_install_help = function () {
 };
 
 window.install_college_tracker_app = async function () {
-  if (!deferred_install_prompt_event || is_iphone_safari_browser()) {
+  if (get_install_help_platform() !== 'android' || !deferred_install_prompt_event) {
     update_install_app_button_visibility();
     return;
   }
@@ -2123,6 +2141,7 @@ window.install_college_tracker_app = async function () {
 
 document.getElementById('install_help_btn')?.addEventListener('click', () => {
   update_install_app_button_visibility();
+  if (!get_install_help_platform()) return;
   document.getElementById('install_help_modal').classList.add('active');
 });
 
@@ -2143,8 +2162,14 @@ window.addEventListener('resize', () => {
   render_entire_application_interface();
 });
 
-window.matchMedia('(display-mode: standalone)').addEventListener?.('change', update_guest_button_visibility);
-window.matchMedia('(display-mode: fullscreen)').addEventListener?.('change', update_guest_button_visibility);
+window.matchMedia('(display-mode: standalone)').addEventListener?.('change', () => {
+  update_guest_button_visibility();
+  update_install_app_button_visibility();
+});
+window.matchMedia('(display-mode: fullscreen)').addEventListener?.('change', () => {
+  update_guest_button_visibility();
+  update_install_app_button_visibility();
+});
 update_guest_button_visibility();
 update_install_app_button_visibility();
 
