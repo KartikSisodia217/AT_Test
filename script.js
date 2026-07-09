@@ -22,6 +22,10 @@ import {
 const GUEST_STORAGE_KEY = 'college_tracker_guest_data_v1';
 const GUEST_SESSION_KEY = 'college_tracker_guest_session_active';
 
+// Session-only flag (not persisted): tracks whether the user has dismissed
+// the reminder banner for the current session. Resets on reload/reopen.
+let reminder_banner_dismissed_this_session = false;
+
 function create_default_user_preferences() {
   return {
     default_module: 'attendance',
@@ -893,9 +897,90 @@ function get_upcoming_reminder_assignments() {
       const due_date = new Date(assignment_item.due_date_string);
       due_date.setHours(0, 0, 0, 0);
       const diff_days = Math.round((due_date - today_date) / 86400000);
+      // Overdue assignments (diff_days < 0) are handled separately by
+      // get_overdue_reminder_assignments and are excluded here so the
+      // reminder window logic continues to apply only to future assignments.
       return diff_days >= 0 && diff_days <= reminder_window_days;
     })
     .sort((a, b) => new Date(a.due_date_string) - new Date(b.due_date_string));
+}
+
+function get_overdue_reminder_assignments() {
+  const today_date = new Date();
+  today_date.setHours(0, 0, 0, 0);
+
+  return application_state.assignments
+    .filter(assignment_item => {
+      if (assignment_item.completion_status !== 'Pending') return false;
+      const due_date = new Date(assignment_item.due_date_string);
+      due_date.setHours(0, 0, 0, 0);
+      const diff_days = Math.round((due_date - today_date) / 86400000);
+      return diff_days < 0;
+    })
+    .sort((a, b) => new Date(a.due_date_string) - new Date(b.due_date_string));
+}
+
+function build_reminder_banner_message(overdue_reminder_assignments, upcoming_reminder_assignments) {
+  const reminder_window_days = parseInt(application_state.user_preferences.assignment_reminder_days) || 3;
+  const today_date = new Date();
+  today_date.setHours(0, 0, 0, 0);
+
+  const overdue_count = overdue_reminder_assignments.length;
+  const upcoming_count = upcoming_reminder_assignments.length;
+
+  // Single overdue assignment, nothing else pending in the window.
+  if (overdue_count === 1 && upcoming_count === 0) {
+    const single_assignment = overdue_reminder_assignments[0];
+    const due_date = new Date(single_assignment.due_date_string);
+    due_date.setHours(0, 0, 0, 0);
+    const diff_days = Math.round((due_date - today_date) / 86400000);
+    const overdue_by_days = Math.abs(diff_days);
+    return `Assignment "${single_assignment.assignment_name}" is overdue by ${overdue_by_days} day${overdue_by_days > 1 ? 's' : ''}.`;
+  }
+
+  // Only overdue assignments, more than one.
+  if (overdue_count > 1 && upcoming_count === 0) {
+    return `You have ${overdue_count} overdue assignments.`;
+  }
+
+  // Only upcoming assignments, no overdue.
+  if (overdue_count === 0 && upcoming_count === 1) {
+    const single_assignment = upcoming_reminder_assignments[0];
+    const due_date = new Date(single_assignment.due_date_string);
+    due_date.setHours(0, 0, 0, 0);
+    const diff_days = Math.round((due_date - today_date) / 86400000);
+
+    let due_phrase = `due in ${diff_days} days`;
+    if (diff_days === 0) due_phrase = 'due today';
+    else if (diff_days === 1) due_phrase = 'due tomorrow';
+
+    return `Assignment "${single_assignment.assignment_name}" is ${due_phrase}.`;
+  }
+
+  if (overdue_count === 0 && upcoming_count > 1) {
+    return `You have ${upcoming_count} assignments due within the next ${reminder_window_days} days.`;
+  }
+
+  // Mixed overdue and upcoming assignments.
+  const overdue_phrase = `${overdue_count} overdue assignment${overdue_count > 1 ? 's' : ''}`;
+
+  let upcoming_phrase = '';
+  if (upcoming_count === 1) {
+    const single_assignment = upcoming_reminder_assignments[0];
+    const due_date = new Date(single_assignment.due_date_string);
+    due_date.setHours(0, 0, 0, 0);
+    const diff_days = Math.round((due_date - today_date) / 86400000);
+
+    let due_phrase = `due in ${diff_days} days`;
+    if (diff_days === 0) due_phrase = 'due today';
+    else if (diff_days === 1) due_phrase = 'due tomorrow';
+
+    upcoming_phrase = `1 assignment ${due_phrase}`;
+  } else {
+    upcoming_phrase = `${upcoming_count} assignments due within the next ${reminder_window_days} days`;
+  }
+
+  return `${overdue_phrase} and ${upcoming_phrase}.`;
 }
 
 function render_reminder_banner() {
@@ -910,36 +995,40 @@ function render_reminder_banner() {
     return;
   }
 
-  const upcoming_reminder_assignments = get_upcoming_reminder_assignments();
-
-  if (upcoming_reminder_assignments.length === 0) {
+  if (reminder_banner_dismissed_this_session) {
     banner_container.innerHTML = '';
     banner_container.classList.remove('has-reminders');
     return;
   }
 
-  const reminder_window_days = parseInt(application_state.user_preferences.assignment_reminder_days) || 3;
-  let banner_message_text = '';
+  const overdue_reminder_assignments = get_overdue_reminder_assignments();
+  const upcoming_reminder_assignments = get_upcoming_reminder_assignments();
 
-  if (upcoming_reminder_assignments.length === 1) {
-    const single_assignment = upcoming_reminder_assignments[0];
-    const today_date = new Date();
-    today_date.setHours(0, 0, 0, 0);
-    const due_date = new Date(single_assignment.due_date_string);
-    due_date.setHours(0, 0, 0, 0);
-    const diff_days = Math.round((due_date - today_date) / 86400000);
-
-    let due_phrase = `due in ${diff_days} days`;
-    if (diff_days === 0) due_phrase = 'due today';
-    else if (diff_days === 1) due_phrase = 'due tomorrow';
-
-    banner_message_text = `Assignment "${single_assignment.assignment_name}" is ${due_phrase}.`;
-  } else {
-    banner_message_text = `You have ${upcoming_reminder_assignments.length} assignments due within the next ${reminder_window_days} days.`;
+  if (overdue_reminder_assignments.length === 0 && upcoming_reminder_assignments.length === 0) {
+    banner_container.innerHTML = '';
+    banner_container.classList.remove('has-reminders');
+    return;
   }
 
-  banner_container.innerHTML = `<div class="reminder-banner">⚠ ${banner_message_text}</div>`;
+  const banner_message_text = build_reminder_banner_message(overdue_reminder_assignments, upcoming_reminder_assignments);
+  const banner_variant_class = overdue_reminder_assignments.length > 0 ? 'reminder-banner overdue' : 'reminder-banner';
+
+  banner_container.innerHTML = `
+    <div class="${banner_variant_class}">
+      <span class="reminder-banner-text">${banner_message_text}</span>
+      <button type="button" class="reminder-banner-close" id="reminder_banner_close_btn" aria-label="Dismiss reminder">&times;</button>
+    </div>
+  `;
   banner_container.classList.add('has-reminders');
+
+  const close_btn = document.getElementById('reminder_banner_close_btn');
+  if (close_btn) {
+    close_btn.addEventListener('click', () => {
+      reminder_banner_dismissed_this_session = true;
+      banner_container.innerHTML = '';
+      banner_container.classList.remove('has-reminders');
+    });
+  }
 }
 
 function render_attendance_statistics_cards() {

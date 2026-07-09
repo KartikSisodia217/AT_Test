@@ -931,6 +931,7 @@ body {
 .reminder-banner {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
   background: rgba(243, 156, 18, 0.12);
   border: 1px solid rgba(243, 156, 18, 0.35);
@@ -941,6 +942,37 @@ body {
   border-radius: 8px;
   margin-bottom: 12px;
   line-height: 1.4;
+}
+
+/* Overdue reminders get stronger visual emphasis than upcoming reminders,
+   reusing the same danger color already used elsewhere for overdue state. */
+.reminder-banner.overdue {
+  background: rgba(231, 76, 60, 0.12);
+  border: 1px solid var(--absent);
+  color: var(--absent);
+  font-weight: 700;
+}
+
+.reminder-banner-text {
+  flex: 1;
+}
+
+.reminder-banner-close {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0 0 0 10px;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.reminder-banner-close:hover {
+  opacity: 1;
 }
 
 .login-screen {
